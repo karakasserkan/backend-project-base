@@ -1,10 +1,14 @@
 var express = require("express");
-const config = require("../config");
 var router = express.Router();
 
-/* GET home page. */
-router.get("/", function (req, res, next) {
-  res.render("index", { title: "Express", config });
-});
+// Router yapısını dinamik olarak oluşturmak için routes klasöründeki tüm dosyaları okuyarak işlemi gerçekleştirebiliriz. Bu sayede yeni bir route eklediğimizde sadece ilgili dosyayı oluşturup içine gerekli kodları yazmamız yeterli olacaktır.
+
+const fs = require("fs");
+let routes = fs.readdirSync(__dirname);
+for (let route of routes) {
+  if (route.includes(".js") && route !== "index.js") {
+    router.use("/" + route.replace(".js", ""), require("./" + route));
+  }
+}
 
 module.exports = router;
