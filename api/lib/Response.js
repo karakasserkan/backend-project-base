@@ -21,6 +21,17 @@ class Response {
           description: error.description,
         },
       };
+    } else if (
+      error.message.includes("E11000 duplicate key error collection")
+    ) {
+      return {
+        code: Enum.HTTP_CODES.CONFLICT,
+        error: {
+          message: "Duplicate key error!",
+          description:
+            "An item with the same unique field already exists in the database.",
+        },
+      };
     }
     return {
       code: Enum.HTTP_CODES.INTERNAL_SERVER_ERROR,
