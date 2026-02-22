@@ -1,4 +1,4 @@
-module.exporst = {
+module.exports = {
   HTTP_CODES: {
     OK: 200,
     CREATED: 201,
@@ -19,4 +19,6 @@ module.exporst = {
     INT_SERVER_ERROR: 500,
     BAD_GATEWAY: 502,
   },
+
+  PASS_LENGTH: 8,
 };
