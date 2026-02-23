@@ -4,6 +4,7 @@ const Categories = require("../db/models/Categories");
 const Response = require("../lib/Response");
 const CustomError = require("../lib/Error");
 const Enum = require("../config/Enum");
+const AuditLogs = require("../lib/AuditLogs");
 
 /**
  * CRUD
@@ -27,6 +28,7 @@ router.get("/", async (req, res, next) => {
   }
 });
 
+// ADD ENDPOINT
 router.post("/add", async (req, res, next) => {
   let body = req.body;
   try {
@@ -45,6 +47,8 @@ router.post("/add", async (req, res, next) => {
 
     await category.save();
 
+    AuditLogs.info(req.user?.email, "Categories", "Add", category);
+
     res.json(Response.successResponse({ success: true }));
   } catch (err) {
     let errorResponse = Response.errorResponse(err);
@@ -52,6 +56,7 @@ router.post("/add", async (req, res, next) => {
   }
 });
 
+// UPDATE ENDPOINT
 router.post("/update", async (req, res) => {
   let body = req.body;
   try {
@@ -69,6 +74,11 @@ router.post("/update", async (req, res) => {
 
     await Categories.updateOne({ _id: body._id }, update);
 
+    AuditLogs.info(req.user?.email, "Categories", "Update", {
+      _id: body._id,
+      ...update,
+    });
+
     res.json(Response.successResponse({ success: true }));
   } catch (err) {
     let errorResponse = Response.errorResponse(err);
@@ -76,6 +86,7 @@ router.post("/update", async (req, res) => {
   }
 });
 
+// DELETE ENDPOINT
 router.delete("/delete", async (req, res) => {
   let body = req.body;
   try {
@@ -85,7 +96,12 @@ router.delete("/delete", async (req, res) => {
         "Id is required",
         "Id field is missing in the request body",
       );
+
     await Categories.deleteOne({ _id: body._id });
+    AuditLogs.info(req.user?.email, "Categories", "Delete", {
+      _id: body._id,
+    });
+
     res.json(Response.successResponse({ success: true }));
   } catch (err) {
     let errorResponse = Response.errorResponse(err);
