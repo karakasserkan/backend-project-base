@@ -10,6 +10,111 @@ const Roles = require("../db/models/Roles");
 const UserRoles = require("../db/models/UserRoles");
 const config = require("../config");
 const jwt = require("jwt-simple");
+const auth = require("../lib/auth")();
+
+// REGISTER ENDPOINT
+router.post("/register", async (req, res) => {
+  let body = req.body;
+  let user = await Users.findOne({});
+  if (user) {
+    return res.sendStatus(Enum.HTTP_CODES.NOT_FOUND);
+  }
+  try {
+    if (!body.email)
+      throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Email is required");
+    if (!is.email(body.email)) {
+      throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Email is not valid");
+    }
+
+    if (!body.password)
+      throw new CustomError(
+        Enum.HTTP_CODES.BAD_REQUEST,
+        "Password is required",
+      );
+    if (body.password.length < Enum.PASS_LENGTH) {
+      throw new CustomError(
+        Enum.HTTP_CODES.BAD_REQUEST,
+        `Password must be at least ${Enum.PASS_LENGTH} characters long`,
+      );
+    }
+
+    let password = bcrypt.hashSync(body.password, bcrypt.genSaltSync(10), null);
+
+    let createdUser = await Users.create({
+      email: body.email,
+      password,
+      is_active: true,
+      first_name: body.first_name,
+      last_name: body.last_name,
+      phone_number: body.phone_number,
+    });
+
+    let role = await Roles.create({
+      role_name: Enum.SUPER_ADMIN,
+      is_active: true,
+      created_by: createdUser._id,
+    });
+
+    await UserRoles.create({
+      role_id: role._id,
+      user_id: createdUser._id,
+    });
+
+    res
+      .status(Enum.HTTP_CODES.CREATED)
+      .json(
+        Response.successResponse({ success: true }, Enum.HTTP_CODES.CREATED),
+      );
+  } catch (err) {
+    let errorResponse = Response.errorResponse(err);
+    res.status(errorResponse.code).json(errorResponse);
+  }
+});
+
+// AUTHENTICATE ENDPOINT
+router.post("/auth", async (req, res) => {
+  try {
+    let { email, password } = req.body;
+    Users.validateFieldsBeforeAuth(email, password);
+    let user = await Users.findOne({ email });
+
+    if (!user)
+      throw new CustomError(
+        Enum.HTTP_CODES.UNAUTHORIZED,
+        "Invalid email or password",
+        "email or password wrong",
+      );
+    if (!user.validPassword(password))
+      throw new CustomError(
+        Enum.HTTP_CODES.UNAUTHORIZED,
+        "Invalid email or password",
+        "email or password wrong",
+      );
+
+    let payload = {
+      id: user._id,
+      exp: parseInt(Date.now() / 1000) * config.JWT.EXPIRE_TIME,
+    };
+
+    let token = jwt.encode(payload, config.JWT.SECRET);
+
+    let userData = {
+      _id: user._id,
+      first_name: user.first_name,
+      last_name: user.last_name,
+    };
+    res.json(Response.successResponse({ token, user: userData }));
+  } catch (err) {
+    let errorResponse = Response.errorResponse(err);
+    res.status(errorResponse.code).json(errorResponse);
+  }
+});
+
+// Koruma işlemine auth ve register endpointleri dahil değil. Diğer tüm endpointler auth koruması altında olacak. Yani kullanıcı giriş yapmadan diğer endpointlere erişemeyecek. Auth işlemi için passport-jwt kullanacağız. Passport-jwt'nin nasıl çalıştığını ve nasıl entegre edileceğini öğrenmek için dökümantasyonunu inceleyebilirsiniz. Auth işlemi için bir middleware oluşturacağız ve bu middleware'i tüm endpointlerde kullanacağız. Bu middleware, gelen istekteki token'ı kontrol edecek ve geçerli ise isteği devam ettirecek, geçerli değilse hata döndürecek.
+
+router.all("*", auth.authenticate(), (req, res, next) => {
+  next();
+});
 
 /* GET users listing. */
 router.get("/", async (req, res) => {
@@ -146,104 +251,6 @@ router.delete("/delete", async (req, res) => {
 
     await UserRoles.deleteMany({ user_id: body._id });
     res.json(Response.successResponse({ success: true }));
-  } catch (err) {
-    let errorResponse = Response.errorResponse(err);
-    res.status(errorResponse.code).json(errorResponse);
-  }
-});
-
-// REGISTER ENDPOINT
-router.post("/register", async (req, res) => {
-  let body = req.body;
-  let user = await Users.findOne({});
-  if (user) {
-    return res.sendStatus(Enum.HTTP_CODES.NOT_FOUND);
-  }
-  try {
-    if (!body.email)
-      throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Email is required");
-    if (!is.email(body.email)) {
-      throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Email is not valid");
-    }
-
-    if (!body.password)
-      throw new CustomError(
-        Enum.HTTP_CODES.BAD_REQUEST,
-        "Password is required",
-      );
-    if (body.password.length < Enum.PASS_LENGTH) {
-      throw new CustomError(
-        Enum.HTTP_CODES.BAD_REQUEST,
-        `Password must be at least ${Enum.PASS_LENGTH} characters long`,
-      );
-    }
-
-    let password = bcrypt.hashSync(body.password, bcrypt.genSaltSync(10), null);
-
-    let createdUser = await Users.create({
-      email: body.email,
-      password,
-      is_active: true,
-      first_name: body.first_name,
-      last_name: body.last_name,
-      phone_number: body.phone_number,
-    });
-
-    let role = await Roles.create({
-      role_name: Enum.SUPER_ADMIN,
-      is_active: true,
-      created_by: createdUser._id,
-    });
-
-    await UserRoles.create({
-      role_id: role._id,
-      user_id: createdUser._id,
-    });
-
-    res
-      .status(Enum.HTTP_CODES.CREATED)
-      .json(
-        Response.successResponse({ success: true }, Enum.HTTP_CODES.CREATED),
-      );
-  } catch (err) {
-    let errorResponse = Response.errorResponse(err);
-    res.status(errorResponse.code).json(errorResponse);
-  }
-});
-
-// AUTHENTICATE ENDPOINT
-router.post("/auth", async (req, res) => {
-  try {
-    let { email, password } = req.body;
-    Users.validateFieldsBeforeAuth(email, password);
-    let user = await Users.findOne({ email });
-
-    if (!user)
-      throw new CustomError(
-        Enum.HTTP_CODES.UNAUTHORIZED,
-        "Invalid email or password",
-        "email or password wrong",
-      );
-    if (!user.validPassword(password))
-      throw new CustomError(
-        Enum.HTTP_CODES.UNAUTHORIZED,
-        "Invalid email or password",
-        "email or password wrong",
-      );
-
-    let payload = {
-      id: user._id,
-      exp: parseInt(Date.now() / 1000) * config.JWT.EXPIRE_TIME,
-    };
-
-    let token = jwt.encode(payload, config.JWT.SECRET);
-
-    let userData = {
-      _id: user._id,
-      first_name: user.first_name,
-      last_name: user.last_name,
-    };
-    res.json(Response.successResponse({ token, user: userData }));
   } catch (err) {
     let errorResponse = Response.errorResponse(err);
     res.status(errorResponse.code).json(errorResponse);

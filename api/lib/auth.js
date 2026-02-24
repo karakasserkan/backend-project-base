@@ -3,6 +3,7 @@ const { ExtractJwt, Strategy } = require("passport-jwt");
 const config = require("../config");
 const Users = require("../db/models/Users");
 const UserRoles = require("../db/models/UserRoles");
+const RolePrivileges = require("../db/models/RolePrivileges");
 
 module.exports = function () {
   let strategy = new Strategy(

@@ -6,6 +6,7 @@ const CustomError = require("../lib/Error");
 const Enum = require("../config/Enum");
 const AuditLogs = require("../lib/AuditLogs");
 const logger = require("../lib/logger/LoggerClass");
+const auth = require("../lib/auth")();
 
 /**
  * CRUD
@@ -14,6 +15,10 @@ const logger = require("../lib/logger/LoggerClass");
  * - Update: PUT /categories/:id
  * - Delete: DELETE /categories/:id
  */
+
+router.all("*", auth.authenticate(), (req, res, next) => {
+  next();
+});
 
 /* GET categories listing. */
 router.get("/", async (req, res, next) => {
