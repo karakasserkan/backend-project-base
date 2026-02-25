@@ -21,7 +21,7 @@ router.all("*", auth.authenticate(), (req, res, next) => {
 });
 
 /* GET categories listing. */
-router.get("/", async (req, res, next) => {
+router.get("/", auth.checkRoles("category_view"), async (req, res, next) => {
   try {
     // Select sorgusu yazılan kısım.
 
@@ -35,7 +35,7 @@ router.get("/", async (req, res, next) => {
 });
 
 // ADD ENDPOINT
-router.post("/add", async (req, res, next) => {
+router.post("/add", auth.checkRoles("category_add"), async (req, res, next) => {
   let body = req.body;
   try {
     if (!body.name)
@@ -65,7 +65,7 @@ router.post("/add", async (req, res, next) => {
 });
 
 // UPDATE ENDPOINT
-router.post("/update", async (req, res) => {
+router.post("/update", auth.checkRoles("category_update"), async (req, res) => {
   let body = req.body;
   try {
     if (!body._id)
@@ -95,26 +95,30 @@ router.post("/update", async (req, res) => {
 });
 
 // DELETE ENDPOINT
-router.delete("/delete", async (req, res) => {
-  let body = req.body;
-  try {
-    if (!body._id)
-      throw new CustomError(
-        Enum.HTTP_CODES.BAD_REQUEST,
-        "Id is required",
-        "Id field is missing in the request body",
-      );
+router.delete(
+  "/delete",
+  auth.checkRoles("category_delete"),
+  async (req, res) => {
+    let body = req.body;
+    try {
+      if (!body._id)
+        throw new CustomError(
+          Enum.HTTP_CODES.BAD_REQUEST,
+          "Id is required",
+          "Id field is missing in the request body",
+        );
 
-    await Categories.deleteOne({ _id: body._id });
-    AuditLogs.info(req.user?.email, "Categories", "Delete", {
-      _id: body._id,
-    });
+      await Categories.deleteOne({ _id: body._id });
+      AuditLogs.info(req.user?.email, "Categories", "Delete", {
+        _id: body._id,
+      });
 
-    res.json(Response.successResponse({ success: true }));
-  } catch (err) {
-    let errorResponse = Response.errorResponse(err);
-    res.status(errorResponse.code).json(errorResponse);
-  }
-});
+      res.json(Response.successResponse({ success: true }));
+    } catch (err) {
+      let errorResponse = Response.errorResponse(err);
+      res.status(errorResponse.code).json(errorResponse);
+    }
+  },
+);
 
 module.exports = router;

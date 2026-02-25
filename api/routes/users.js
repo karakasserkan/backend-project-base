@@ -117,7 +117,7 @@ router.all("*", auth.authenticate(), (req, res, next) => {
 });
 
 /* GET users listing. */
-router.get("/", async (req, res) => {
+router.get("/", auth.checkRoles("user_view"), async (req, res) => {
   try {
     let users = await Users.find({});
     res.json(Response.successResponse(users));
@@ -128,7 +128,7 @@ router.get("/", async (req, res) => {
 });
 
 // ADD ENDPOINT
-router.post("/add", async (req, res) => {
+router.post("/add", auth.checkRoles("user_add"), async (req, res) => {
   let body = req.body;
   try {
     if (!body.email)
@@ -187,7 +187,7 @@ router.post("/add", async (req, res) => {
 
 // UPDATE ENDPOINT
 
-router.post("/update", async (req, res) => {
+router.post("/update", auth.checkRoles("user_update"), async (req, res) => {
   let body = req.body;
   let updates = {};
   if (!body._id)
@@ -242,7 +242,7 @@ router.post("/update", async (req, res) => {
 
 // DELETE ENDPOINT
 
-router.delete("/delete", async (req, res) => {
+router.delete("/delete", auth.checkRoles("user_delete"), async (req, res) => {
   let body = req.body;
   if (!body._id)
     throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "User ID is required");

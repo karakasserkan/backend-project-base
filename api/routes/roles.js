@@ -13,7 +13,7 @@ router.all("*", auth.authenticate(), (req, res, next) => {
 });
 
 /* GET roles listing. */
-router.get("/", async (req, res, next) => {
+router.get("/", auth.checkRoles("role_view"), async (req, res, next) => {
   try {
     let roles = await Roles.find({});
     res.json(Response.successResponse(roles));
@@ -24,7 +24,7 @@ router.get("/", async (req, res, next) => {
 });
 
 // ADD END POINT
-router.post("/add", async (req, res, next) => {
+router.post("/add", auth.checkRoles("role_add"), async (req, res, next) => {
   let body = req.body;
   try {
     if (!body.role_name)
@@ -69,63 +69,68 @@ router.post("/add", async (req, res, next) => {
 
 // UPDATE END POINT
 
-router.post("/update", async (req, res, next) => {
-  let body = req.body;
-  try {
-    if (!body._id)
-      throw new CustomError(
-        Enum.HTTP_CODES.BAD_REQUEST,
-        "Role id is required",
-        "_id field is missing in the request body",
-      );
-    let updates = {};
-    if (body.role_name) updates.role_name = body.role_name;
-    if (typeof body.is_active === "boolean") updates.is_active = body.is_active;
+router.post(
+  "/update",
+  auth.checkRoles("role_update"),
+  async (req, res, next) => {
+    let body = req.body;
+    try {
+      if (!body._id)
+        throw new CustomError(
+          Enum.HTTP_CODES.BAD_REQUEST,
+          "Role id is required",
+          "_id field is missing in the request body",
+        );
+      let updates = {};
+      if (body.role_name) updates.role_name = body.role_name;
+      if (typeof body.is_active === "boolean")
+        updates.is_active = body.is_active;
 
-    if (
-      body.permissions &&
-      Array.isArray(body.permissions) &&
-      body.permissions.length > 0
-    ) {
-      let permissions = await RolePrivileges.find({ role_id: body._id });
+      if (
+        body.permissions &&
+        Array.isArray(body.permissions) &&
+        body.permissions.length > 0
+      ) {
+        let permissions = await RolePrivileges.find({ role_id: body._id });
 
-      let removedPermissions = permissions.filter(
-        (x) => !body.permissions.includes(x.permission),
-      );
+        let removedPermissions = permissions.filter(
+          (x) => !body.permissions.includes(x.permission),
+        );
 
-      let newPermissions = body.permissions.filter(
-        (x) => !permissons.map((p) => p.permission).includes(x),
-      );
+        let newPermissions = body.permissions.filter(
+          (x) => !permissions.map((p) => p.permission).includes(x),
+        );
 
-      if (removedPermissions.length > 0) {
-        await RolePrivileges.deleteOne({
-          _id: { $in: removedPermissions.map((x) => x._id) },
-        });
-      }
-
-      if (newPermissions.length > 0) {
-        for (let i = 0; i < newPermissions.length; i++) {
-          let priv = new RolePrivileges({
-            role_id: body._id,
-            permission: newPermissions[i],
-            created_by: req.user?.id,
+        if (removedPermissions.length > 0) {
+          await RolePrivileges.deleteOne({
+            _id: { $in: removedPermissions.map((x) => x._id) },
           });
-          await priv.save();
+        }
+
+        if (newPermissions.length > 0) {
+          for (let i = 0; i < newPermissions.length; i++) {
+            let priv = new RolePrivileges({
+              role_id: body._id,
+              permission: newPermissions[i],
+              created_by: req.user?.id,
+            });
+            await priv.save();
+          }
         }
       }
+
+      await Roles.updateOne({ _id: body._id }, updates);
+
+      res.json(Response.successResponse({ success: true }));
+    } catch (err) {
+      let errorResponse = Response.errorResponse(err);
+      res.status(errorResponse.code).json(errorResponse);
     }
-
-    await Roles.updateOne({ _id: body._id }, updates);
-
-    res.json(Response.successResponse({ success: true }));
-  } catch (err) {
-    let errorResponse = Response.errorResponse(err);
-    res.status(errorResponse.code).json(errorResponse);
-  }
-});
+  },
+);
 
 // DELETE END POINT
-router.delete("/delete", async (req, res) => {
+router.delete("/delete", auth.checkRoles("role_delete"), async (req, res) => {
   let body = req.body;
   try {
     if (!body._id)
