@@ -7,6 +7,8 @@ const CustomError = require("../lib/Error");
 const role_privileges = require("../config/role_privileges");
 const Enum = require("../config/Enum");
 const auth = require("../lib/auth")();
+const config = require("../config");
+const i18n = new (require("../lib/i18n"))(config.DEFAULT_LANG);
 
 router.all("*", auth.authenticate(), (req, res, next) => {
   next();
@@ -30,18 +32,23 @@ router.post("/add", auth.checkRoles("role_add"), async (req, res, next) => {
     if (!body.role_name)
       throw new CustomError(
         Enum.HTTP_CODES.BAD_REQUEST,
-        "Role name is required",
-        "role_name field is missing in the request body",
+        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
+        i18n.translate("COMMON.FIELD_MUST_BE_FILLED", req.user.language, [
+          "role_name",
+        ]),
       );
     if (
       !body.permissions ||
       !Array.isArray(body.permissions) ||
       body.permissions.length === 0
     ) {
-      throw new CustomError(
+      throw new CustomError( //FIELD_MUST_BE_TYPE
         Enum.HTTP_CODES.BAD_REQUEST,
-        "Permissions are required",
-        "permissions field is missing or not an array in the request body",
+        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
+        i18n.translate("COMMON.FIELD_MUST_BE_TYPE", req.user.language, [
+          "permissions",
+          "Array",
+        ]),
       );
     }
     let role = new Roles({
@@ -78,8 +85,10 @@ router.post(
       if (!body._id)
         throw new CustomError(
           Enum.HTTP_CODES.BAD_REQUEST,
-          "Role id is required",
-          "_id field is missing in the request body",
+          i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
+          i18n.translate("COMMON.FIELD_MUST_BE_FILLED", req.user.language, [
+            "_id",
+          ]),
         );
       let updates = {};
       if (body.role_name) updates.role_name = body.role_name;
@@ -136,8 +145,10 @@ router.delete("/delete", auth.checkRoles("role_delete"), async (req, res) => {
     if (!body._id)
       throw new CustomError(
         Enum.HTTP_CODES.BAD_REQUEST,
-        "Id is required",
-        "Id field is missing in the request body",
+        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
+        i18n.translate("COMMON.FIELD_MUST_BE_FILLED", req.user.language, [
+          "_id",
+        ]),
       );
     await Roles.deleteOne({ _id: body._id });
     res.json(Response.successResponse({ success: true }));
