@@ -104,6 +104,12 @@ module.exports = {
       description:
         "Category delete permission allows the user to delete existing categories.",
     },
+    {
+      key: " category_export",
+      name: "Category Export",
+      group: "CATEGORIES",
+      description: "Category Export",
+    },
     // AUDITLOGS
     {
       key: " auditlogs_view",

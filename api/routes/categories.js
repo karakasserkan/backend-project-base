@@ -10,6 +10,8 @@ const auth = require("../lib/auth")();
 const config = require("../config");
 const i18n = new (require("../lib/i18n"))(config.DEFAULT_LANG);
 const emitter = require("../lib/Emitter");
+const excelExport = new (require("../lib/Export"))();
+const fs = require("fs");
 
 /**
  * CRUD
@@ -133,5 +135,60 @@ router.delete(
     }
   },
 );
+
+// EXPORT ENDPOINT
+router.get("/export", auth.checkRoles("category_export"), async (req, res) => {
+  try {
+    // let categories = await Categories.find({});
+
+    // let excel = excelExport.toExcel(
+    //   [
+    //     "NAME",
+    //     "IS ACTIVE?",
+    //     "USER ID",
+    //     "CREATED BY",
+    //     "UPDATED AT",
+    //     "CREATED AT",
+    //   ],
+    //   [
+    //     "name",
+    //     "is_active",
+    //     "user_id",
+    //     "created_by",
+    //     "updated_at",
+    //     "created_at",
+    //   ],
+    //   categories,
+    // );
+
+    // let filePath =
+    //   __dirname + "/../tmp/categories_excel_" + Date.now() + ".xlsx";
+    // fs.writeFileSync(filePath, excel, "UTF-8");
+    // res.download(filePath);
+    // //fs.unlinkSync(filePath);
+    let categories = await Categories.find({});
+
+    let excel = excelExport.toExcel(
+      ["NAME", "IS ACTIVE?", "USER ID", "UPDATED AT", "CREATED AT"],
+      ["name", "is_active", "user_id", "updated_at", "created_at"],
+      categories,
+    );
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=categories.xlsx",
+    );
+
+    return res.status(200).send(excel);
+  } catch (err) {
+    let errorResponse = Response.errorResponse(err);
+    res.status(errorResponse.code).json(Response.errorResponse(err));
+  }
+});
 
 module.exports = router;
