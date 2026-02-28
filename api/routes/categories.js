@@ -12,6 +12,24 @@ const i18n = new (require("../lib/i18n"))(config.DEFAULT_LANG);
 const emitter = require("../lib/Emitter");
 const excelExport = new (require("../lib/Export"))();
 const fs = require("fs");
+const multer = require("multer");
+const path = require("path");
+const Import = new (require("../lib/Import"))();
+
+// IMPORT
+let multerStorage = multer.diskStorage({
+  destination: (req, file, next) => {
+    next(null, config.FILE_UPLOAD_PATH);
+  },
+  filename: (req, file, next) => {
+    next(
+      null,
+      file.fieldname + "_" + Date.now() + path.extname(file.originalname),
+    );
+  },
+});
+
+const upload = multer({ storage: multerStorage }).single("pb_file");
 
 /**
  * CRUD
@@ -190,5 +208,68 @@ router.get("/export", auth.checkRoles("category_export"), async (req, res) => {
     res.status(errorResponse.code).json(Response.errorResponse(err));
   }
 });
+
+// IMPORT ENDPOINT
+router.post(
+  "/import",
+  auth.checkRoles("category_import"),
+  upload,
+  async (req, res) => {
+    let file;
+    try {
+      file = req.file;
+      if (!req.file) {
+        throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "File is required");
+      }
+      let body = req.body;
+
+      let rows = Import.fromExcel(file.path);
+      // HEADER KONTROLÜ
+      let headers = rows[0];
+
+      if (!headers || headers[0] !== "NAME") {
+        throw new CustomError(
+          Enum.HTTP_CODES.BAD_REQUEST,
+          "Invalid Excel Format",
+        );
+      }
+      let insertedCount = 0;
+
+      for (let i = 1; i < rows.length; i++) {
+        let [name, is_active, user, created_at, updated_at] = rows[i];
+        if (name) {
+          let exists = await Categories.findOne({ name });
+          if (!exists) {
+            let active =
+              is_active === true ||
+              is_active === "true" ||
+              is_active === 1 ||
+              is_active === "1";
+
+            await Categories.create({
+              name,
+              is_active: active,
+              created_by: req.user._id,
+            });
+            insertedCount++;
+          }
+        }
+      }
+      res.json(
+        Response.successResponse(
+          { inserted: insertedCount },
+          Enum.HTTP_CODES.CREATED,
+        ),
+      );
+    } catch (err) {
+      let errorResponse = Response.errorResponse(err);
+      res.status(errorResponse.code).json(Response.errorResponse(err));
+    } finally {
+      if (file && fs.existsSync(file.path)) {
+        fs.unlinkSync(file.path);
+      }
+    }
+  },
+);
 
 module.exports = router;
