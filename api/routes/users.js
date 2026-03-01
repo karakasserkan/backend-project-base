@@ -94,25 +94,30 @@ router.post("/register", async (req, res) => {
 router.post("/auth", async (req, res) => {
   try {
     let { email, password } = req.body;
+
+    let lang = req.headers["accept-language"] || config.DEFAULT_LANG;
+
     Users.validateFieldsBeforeAuth(email, password);
+
     let user = await Users.findOne({ email });
 
     if (!user)
       throw new CustomError(
         Enum.HTTP_CODES.UNAUTHORIZED,
-        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
-        i18n.translate("USERS.AUTH_ERROR", req.user.language),
+        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", lang),
+        i18n.translate("USERS.AUTH_ERROR", lang),
       );
+
     if (!user.validPassword(password))
       throw new CustomError(
         Enum.HTTP_CODES.UNAUTHORIZED,
-        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
-        i18n.translate("USERS.AUTH_ERROR", req.user.language),
+        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", lang),
+        i18n.translate("USERS.AUTH_ERROR", lang),
       );
 
     let payload = {
       id: user._id,
-      exp: parseInt(Date.now() / 1000) * config.JWT.EXPIRE_TIME,
+      exp: parseInt(Date.now() / 1000) + config.JWT.EXPIRE_TIME,
     };
 
     let token = jwt.encode(payload, config.JWT.SECRET);
@@ -122,6 +127,7 @@ router.post("/auth", async (req, res) => {
       first_name: user.first_name,
       last_name: user.last_name,
     };
+
     res.json(Response.successResponse({ token, user: userData }));
   } catch (err) {
     let errorResponse = Response.errorResponse(err);
