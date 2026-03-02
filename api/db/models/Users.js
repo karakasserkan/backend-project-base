@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const { PASS_LENGTH, HTTP_CODES } = require("../../config/Enum");
-const is = require("is_js");
+const validator = require("validator");
 const { DEFAULT_LANG } = require("../../config");
 const CustomError = require("../../lib/Error");
 const bcrypt = require("bcrypt-nodejs");
@@ -33,7 +33,7 @@ class Users extends mongoose.Model {
     if (
       typeof password !== "string" ||
       password.length < PASS_LENGTH ||
-      is.not.email(email)
+      !validator.isEmail(email)
     ) {
       throw new CustomError(
         HTTP_CODES.UNAUTHORIZED,

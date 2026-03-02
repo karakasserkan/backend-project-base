@@ -5,7 +5,7 @@ const Response = require("../lib/Response");
 const CustomError = require("../lib/Error");
 const Enum = require("../config/Enum");
 const bcrypt = require("bcrypt-nodejs");
-const is = require("is_js");
+const validator = require("validator");
 const Roles = require("../db/models/Roles");
 const UserRoles = require("../db/models/UserRoles");
 const config = require("../config");
@@ -29,7 +29,7 @@ router.post("/register", async (req, res) => {
           "email",
         ]),
       );
-    if (!is.email(body.email)) {
+    if (!validator.isEmail(body.email)) {
       throw new CustomError(
         Enum.HTTP_CODES.BAD_REQUEST,
         i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
@@ -164,7 +164,7 @@ router.post("/add", auth.checkRoles("user_add"), async (req, res) => {
           "email",
         ]),
       );
-    if (!is.email(body.email)) {
+    if (!validator.isEmail(body.email)) {
       throw new CustomError(
         Enum.HTTP_CODES.BAD_REQUEST,
         i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
@@ -291,7 +291,7 @@ router.post("/update", auth.checkRoles("user_update"), async (req, res) => {
       }
     }
 
-    await Users.updateOne({ _id: body._id }, updates);
+    await Users.updateOne({ _id: body._id }, { $set: updates });
     res.json(Response.successResponse({ success: true }));
   } catch (err) {
     let errorResponse = Response.errorResponse(err);
