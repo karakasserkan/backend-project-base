@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const RolePrivileges = require("./RolePrivileges");
 
 const schema = mongoose.Schema(
   {
@@ -16,12 +17,12 @@ const schema = mongoose.Schema(
 );
 
 class Roles extends mongoose.Model {
+  // Role silinince ilgili tüm RolePrivileges kayıtlarını da sil
   static async deleteOne(query) {
     if (query._id) {
-      await RolePrivileges.deleteOne({ role_id: query._id });
+      await RolePrivileges.deleteMany({ role_id: query._id }); // FIX: deleteOne → deleteMany
     }
-
-    super.deleteOne(query);
+    return super.deleteOne(query); // FIX: return eklendi (sonucu iletmek için)
   }
 }
 

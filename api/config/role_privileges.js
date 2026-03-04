@@ -21,27 +21,27 @@ module.exports = {
   privileges: [
     // USERS
     {
-      key: " user_view",
+      key: "user_view",
       name: "User View",
       group: "USERS",
       description:
         "User view permission allows the user to view the list of users and their details.",
     },
     {
-      key: " user_add",
+      key: "user_add",
       name: "User Add",
       group: "USERS",
       description: "User add permission allows the user to add new users.",
     },
     {
-      key: " user_update",
+      key: "user_update",
       name: "User Update",
       group: "USERS",
       description:
         "User update permission allows the user to update existing users.",
     },
     {
-      key: " user_delete",
+      key: "user_delete",
       name: "User Delete",
       group: "USERS",
       description:
@@ -49,27 +49,27 @@ module.exports = {
     },
     // ROLES
     {
-      key: " role_view",
+      key: "role_view",
       name: "Role View",
       group: "ROLES",
       description:
         "Role view permission allows the user to view the list of roles and their details.",
     },
     {
-      key: " role_add",
+      key: "role_add",
       name: "Role Add",
       group: "ROLES",
       description: "Role add permission allows the user to add new roles.",
     },
     {
-      key: " role_update",
+      key: "role_update",
       name: "Role Update",
       group: "ROLES",
       description:
         "Role update permission allows the user to update existing roles.",
     },
     {
-      key: " role_delete",
+      key: "role_delete",
       name: "Role Delete",
       group: "ROLES",
       description:
@@ -77,42 +77,42 @@ module.exports = {
     },
     // CATEGORIES
     {
-      key: " category_view",
+      key: "category_view",
       name: "Category View",
       group: "CATEGORIES",
       description:
         "Category view permission allows the user to view the list of categories and their details.",
     },
     {
-      key: " category_add",
+      key: "category_add",
       name: "Category Add",
       group: "CATEGORIES",
       description:
         "Category add permission allows the user to add new categories.",
     },
     {
-      key: " category_update",
+      key: "category_update",
       name: "Category Update",
       group: "CATEGORIES",
       description:
         "Category update permission allows the user to update existing categories.",
     },
     {
-      key: " category_delete",
+      key: "category_delete",
       name: "Category Delete",
       group: "CATEGORIES",
       description:
         "Category delete permission allows the user to delete existing categories.",
     },
     {
-      key: " category_export",
+      key: "category_export",
       name: "Category Export",
       group: "CATEGORIES",
       description: "Category Export",
     },
     // AUDITLOGS
     {
-      key: " auditlogs_view",
+      key: "auditlogs_view",
       name: "AuditLogs View",
       group: "AUDITLOGS",
       description:
