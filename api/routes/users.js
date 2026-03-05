@@ -14,6 +14,23 @@ const auth = require("../lib/auth")();
 const i18n = new (require("../lib/i18n"))(config.DEFAULT_LANG);
 const RolePrivileges = require("../db/models/RolePrivileges");
 const rolePrivConfig = require("../config/role_privileges");
+const { rateLimit } = require("express-rate-limit");
+const { MongoDBStore } = require("@iroomit/rate-limit-mongodb");
+
+// LIMIT ENDPOINT
+const limiter = rateLimit({
+  store: new MongoDBStore({
+    uri: config.CONNECTION_STRING,
+    collectionName: "rateLimits",
+    resetExpireDateOnChange: true, // pencere süresini her istekte sıfırlar
+    expireTimeMs: 15 * 60 * 1000, // 15 min
+  }),
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 5, // Limit each IP to 5 requests per `window` (here, per 15 minutes).
+  // standardHeaders: "draft-8", // draft-6: `RateLimit-*` headers; draft-7 & draft-8: combined `RateLimit` header
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers.
+  ipv6Subnet: 56, // Set to 60 or 64 to be less aggressive, or 52 or 48 to be more aggressive
+});
 
 // ─── PUBLIC ENDPOINTS ────────────────────────────────────────────────────────
 
@@ -98,7 +115,7 @@ router.post("/register", async (req, res) => {
 });
 
 // AUTH — Email/şifre ile giriş, JWT token döner
-router.post("/auth", async (req, res) => {
+router.post("/auth", limiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     const lang = req.headers["accept-language"] || config.DEFAULT_LANG;
@@ -282,6 +299,15 @@ router.post("/update", auth.checkRoles("user_update"), async (req, res) => {
     if (body.first_name) updates.first_name = body.first_name;
     if (body.last_name) updates.last_name = body.last_name;
     if (body.phone_number) updates.phone_number = body.phone_number;
+
+    if (body._id == req.user.id) {
+      // throw new CustomError(
+      //   Enum.HTTP_CODES.FORBIDDEN,
+      //   i18n.translate("COMMON.NEED_PERMISSIONS", req.user.language),
+      //   i18n.translate("COMMON.NEED_PERMISSIONS", req.user.language),
+      // );
+      body.roles = null;
+    }
 
     if (Array.isArray(body.roles) && body.roles.length > 0) {
       const userRoles = await UserRoles.find({ user_id: body._id });

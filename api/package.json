@@ -6,12 +6,14 @@
     "start": "node ./bin/www"
   },
   "dependencies": {
+    "@iroomit/rate-limit-mongodb": "^1.0.1",
     "bcrypt-nodejs": "^0.0.3",
     "cookie-parser": "~1.4.4",
     "debug": "~2.6.9",
     "dotenv": "^17.3.1",
     "ejs": "^4.0.1",
     "express": "^4.22.1",
+    "express-rate-limit": "^8.2.1",
     "http-errors": "~1.6.3",
     "jwt-simple": "^0.5.6",
     "moment": "^2.30.1",

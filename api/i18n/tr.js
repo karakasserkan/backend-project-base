@@ -5,6 +5,7 @@ module.exports = {
     UNKNOWN_ERROR: "Bilinmeyen Hata!",
     FIELD_MUST_BE_FILLED: "${} alanı dolu olmalıdır!",
     FIELD_MUST_BE_TYPE: "${} alanı ${} tipinde dolu olmalıdır!",
+    NEED_PERMISSIONS: "Bu işlemi gerçekleştirmek için Yetki Gerekli!",
   },
   USERS: {
     AUTH_ERROR: "Email ve ya password hatalı!",

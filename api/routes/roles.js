@@ -9,6 +9,7 @@ const Enum = require("../config/Enum");
 const auth = require("../lib/auth")();
 const config = require("../config");
 const i18n = new (require("../lib/i18n"))(config.DEFAULT_LANG);
+const UserRoles = require("../db/models/UserRoles.js");
 
 router.use(auth.authenticate());
 
@@ -104,6 +105,17 @@ router.post("/update", auth.checkRoles("role_update"), async (req, res) => {
         ]),
       );
 
+    let userRole = await UserRoles.findOne({
+      user_id: req.user.id,
+      role_id: body._id,
+    });
+    if (userRole)
+      throw new CustomError(
+        Enum.HTTP_CODES.FORBIDDEN,
+        i18n.translate("COMMON.NEED_PERMISSIONS", req.user.language),
+        i18n.translate("COMMON.NEED_PERMISSIONS", req.user.language),
+      );
+
     const updates = {};
     if (body.role_name) updates.role_name = body.role_name;
     if (typeof body.is_active === "boolean") updates.is_active = body.is_active;
@@ -127,7 +139,21 @@ router.post("/update", auth.checkRoles("role_update"), async (req, res) => {
           _id: { $in: toRemove.map((x) => x._id) },
         });
 
-      if (toAdd.length > 0)
+      if (toAdd.length > 0) {
+        // Kullanıcının kendi yetkilerini al
+        const myRoles = await UserRoles.find({ user_id: req.user.id });
+        const myPrivileges = await RolePrivileges.find({
+          role_id: { $in: myRoles.map((r) => r.role_id) },
+        });
+        const myPermissionKeys = myPrivileges.map((p) => p.permission);
+
+        const exceedsMyPerms = toAdd.some((p) => !myPermissionKeys.includes(p));
+        if (exceedsMyPerms)
+          throw new CustomError(
+            Enum.HTTP_CODES.FORBIDDEN,
+            i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
+            "You cannot grant permissions you do not have",
+          );
         await RolePrivileges.insertMany(
           toAdd.map((perm) => ({
             role_id: body._id,
@@ -135,6 +161,7 @@ router.post("/update", auth.checkRoles("role_update"), async (req, res) => {
             created_by: req.user?.id,
           })),
         );
+      }
     }
 
     await Roles.updateOne({ _id: body._id }, updates);
