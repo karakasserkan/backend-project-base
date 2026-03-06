@@ -6,7 +6,9 @@ module.exports = {
     "mongodb://localhost:27017/backend-project-base",
 
   JWT: {
-    SECRET: "123456",
+    SECRET:
+      process.env.JWT_SECRET ||
+      "9f4c7d1e6a2b8c0f3e9d5b71a4c6f8d2e1b7c3a9f0d4e6c2b8a1f5d7c9e3a6b1",
     EXPIRE_TIME: !isNaN(parseInt(process.env.TOKEN_EXPIRE_TIME))
       ? parseInt(process.env.TOKEN_EXPIRE_TIME)
       : 24 * 60 * 60, //86400
