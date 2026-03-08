@@ -301,12 +301,11 @@ router.post("/update", auth.checkRoles("user_update"), async (req, res) => {
     if (body.phone_number) updates.phone_number = body.phone_number;
 
     if (body._id == req.user.id) {
-      // throw new CustomError(
-      //   Enum.HTTP_CODES.FORBIDDEN,
-      //   i18n.translate("COMMON.NEED_PERMISSIONS", req.user.language),
-      //   i18n.translate("COMMON.NEED_PERMISSIONS", req.user.language),
-      // );
-      body.roles = null;
+      throw new CustomError(
+        Enum.HTTP_CODES.FORBIDDEN,
+        i18n.translate("COMMON.NEED_PERMISSIONS", req.user.language),
+        i18n.translate("COMMON.NEED_PERMISSIONS", req.user.language),
+      );
     }
 
     if (Array.isArray(body.roles) && body.roles.length > 0) {

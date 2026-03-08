@@ -17,46 +17,55 @@ router.all("*", auth.authenticate(), (req, res, next) => {
 */
 
 // 1. ENDPOINT
-router.get("/auditlogs", async (req, res) => {
-  try {
-    let body = req.body;
-    let filter = {};
-    if (typeof body.location === "string") filter.location = body.location;
-    let result = await AuditLogs.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: { email: "$email", proc_type: "$proc_type" },
-          count: { $sum: 1 },
+router.get(
+  "/auditlogs",
+  auth.checkRoles("auditlogs_view"),
+  async (req, res) => {
+    try {
+      let body = req.body;
+      let filter = {};
+      if (typeof body.location === "string") filter.location = body.location;
+      let result = await AuditLogs.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: { email: "$email", proc_type: "$proc_type" },
+            count: { $sum: 1 },
+          },
         },
-      },
-      { $sort: { count: -1 } },
-    ]);
-    res.json(Response.successResponse(result));
-  } catch (err) {
-    let errorResponse = Response.errorResponse(err, req.user?.language);
-    res.status(errorResponse.code).json(errorResponse);
-  }
-});
+        { $sort: { count: -1 } },
+      ]);
+      res.json(Response.successResponse(result));
+    } catch (err) {
+      let errorResponse = Response.errorResponse(err, req.user?.language);
+      res.status(errorResponse.code).json(errorResponse);
+    }
+  },
+);
 
 // 2. ENDPOINT
-router.get("/categories/unique", async (req, res) => {
-  try {
-    let body = req.body;
-    let filter = {};
-    if (typeof body.is_active === "boolean") filter.is_active = body.is_active;
+router.get(
+  "/categories/unique",
+  auth.checkRoles("category_view"),
+  async (req, res) => {
+    try {
+      let body = req.body;
+      let filter = {};
+      if (typeof body.is_active === "boolean")
+        filter.is_active = body.is_active;
 
-    let result = await Categories.distinct("name", filter);
-    res.json(Response.successResponse({ result, count: result.length }));
-  } catch (err) {
-    let errorResponse = Response.errorResponse(err, req.user?.language);
-    res.status(errorResponse.code).json(errorResponse);
-  }
-});
+      let result = await Categories.distinct("name", filter);
+      res.json(Response.successResponse({ result, count: result.length }));
+    } catch (err) {
+      let errorResponse = Response.errorResponse(err, req.user?.language);
+      res.status(errorResponse.code).json(errorResponse);
+    }
+  },
+);
 
 // 3. ENDPOINT
 
-router.get("/users/count", async (req, res) => {
+router.get("/users/count", auth.checkRoles("user_view"), async (req, res) => {
   try {
     let body = req.body;
     let filter = {};

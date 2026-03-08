@@ -117,6 +117,10 @@ router.post("/update", auth.checkRoles("category_update"), async (req, res) => {
       _id: body._id,
       ...update,
     });
+    logger.info(req.user?.email, "Categories", "Update", {
+      _id: body._id,
+      ...update,
+    });
 
     res.json(Response.successResponse({ success: true }));
   } catch (err) {
@@ -205,7 +209,7 @@ router.get("/export", auth.checkRoles("category_export"), async (req, res) => {
     return res.status(200).send(excel);
   } catch (err) {
     let errorResponse = Response.errorResponse(err);
-    res.status(errorResponse.code).json(Response.errorResponse(err));
+    res.status(errorResponse.code).json(errorResponse);
   }
 });
 
@@ -263,7 +267,7 @@ router.post(
       );
     } catch (err) {
       let errorResponse = Response.errorResponse(err);
-      res.status(errorResponse.code).json(Response.errorResponse(err));
+      res.status(errorResponse.code).json(errorResponse);
     } finally {
       if (file && fs.existsSync(file.path)) {
         fs.unlinkSync(file.path);
