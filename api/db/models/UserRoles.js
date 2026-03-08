@@ -7,12 +7,12 @@ const schema = mongoose.Schema(
     role_id: {
       type: mongoose.SchemaTypes.ObjectId,
       required: true,
-      ref: Roles,
+      ref: "roles",
     },
     user_id: {
       type: mongoose.SchemaTypes.ObjectId,
       required: true,
-      ref: Users,
+      ref: "users",
     },
   },
   {
@@ -27,5 +27,6 @@ const schema = mongoose.Schema(
 class UserRoles extends mongoose.Model {}
 
 schema.loadClass(UserRoles);
+schema.index({ user_id: 1, role_id: 1 }, { unique: true });
 
 module.exports = mongoose.model("user_roles", schema);

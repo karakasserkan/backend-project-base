@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const schema = mongoose.Schema(
   {
-    name: { type: String, required: true },
+    name: { type: String, required: true, trim: true },
     is_active: { type: Boolean, default: true },
     created_by: { type: mongoose.SchemaTypes.ObjectId },
   },

@@ -2,11 +2,11 @@ const mongoose = require("mongoose");
 
 const schema = mongoose.Schema(
   {
-    level: String,
-    email: String,
-    location: String,
-    proc_type: String,
-    log: mongoose.SchemaTypes.Mixed,
+    level: { type: String, enum: ["info", "warning", "error"], required: true },
+    email: { type: String },
+    location: { type: String },
+    proc_type: { type: String },
+    log: { type: mongoose.SchemaTypes.Mixed },
   },
   {
     versionKey: false,
