@@ -65,14 +65,12 @@ class AuditLogs {
     });
   }
 
-  #saveToDB({ email, location, proc_type, log, level }) {
-    AuditLogsModel.create({
-      level,
-      email,
-      location,
-      proc_type,
-      log,
-    });
+  async #saveToDB({ email, location, proc_type, log, level }) {
+    try {
+      await AuditLogsModel.create({ level, email, location, proc_type, log });
+    } catch (err) {
+      console.error("AuditLog write failed:", err);
+    }
   }
 }
 

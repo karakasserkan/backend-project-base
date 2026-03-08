@@ -13,18 +13,18 @@ class Response {
     };
   }
 
-  static errorResponse(error, lang) {
+  static errorResponse(error, lang = config.DEFAULT_LANG) {
     console.error(error);
     if (error instanceof CustomError) {
       return {
         code: error.code,
         error: {
-          message: error.message,
+          message: i18n.translate("COMMON.ALREADY_EXISTS", lang),
           description: error.description,
         },
       };
     } else if (
-      error.message.includes("E11000 duplicate key error collection")
+      error.message?.includes("E11000 duplicate key error collection")
     ) {
       return {
         code: Enum.HTTP_CODES.CONFLICT,

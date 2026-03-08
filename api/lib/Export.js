@@ -10,6 +10,8 @@ class Export {
    * @param {Array} data Excel tablosuna yazılacak veriler
    */
   toExcel(titles, columns, data = []) {
+    if (titles.length !== columns.length)
+      throw new Error("titles and columns length must match");
     let rows = [];
     rows.push(titles);
     for (let i = 0; i < data.length; i++) {

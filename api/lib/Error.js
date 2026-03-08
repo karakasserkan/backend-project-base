@@ -1,8 +1,6 @@
 class CustomError extends Error {
   constructor(code, message, description) {
-    super(
-      `{"code": "${code}", "message": "${message}", "description": "${description}"}`,
-    );
+    super(message);
     this.code = code;
     this.message = message;
     this.description = description;

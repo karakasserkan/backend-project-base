@@ -5,6 +5,12 @@ const { HTTP_CODES } = require("../config/Enum");
 class Import {
   constructor() {}
   fromExcel(filePath) {
+    if (!filePath.endsWith(".xlsx") && !filePath.endsWith(".xls"))
+      throw new CustomError(
+        HTTP_CODES.BAD_REQUEST,
+        "Invalid file type",
+        "Only .xlsx and .xls files are accepted",
+      );
     let workSheets = xlsx.parse(filePath);
     if (!workSheets || workSheets.length == 0)
       throw new CustomError(

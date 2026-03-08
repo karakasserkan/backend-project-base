@@ -13,6 +13,7 @@ class Emitter {
     return this.emitters[name];
   }
   addEmitter(name) {
+    if (this.emitters[name]) return this.emitters[name]; // zaten varsa döndür
     this.emitters[name] = new EventEmitter();
     return this.emitters[name];
   }
