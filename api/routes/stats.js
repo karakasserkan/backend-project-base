@@ -5,77 +5,60 @@ const AuditLogs = require("../db/models/AuditLogs");
 const Categories = require("../db/models/Categories");
 const Users = require("../db/models/Users");
 const auth = require("../lib/auth")();
+const asyncHandler = require("../lib/asyncHandler");
 
-router.all("*", auth.authenticate(), (req, res, next) => {
-  next();
-});
+router.use(auth.authenticate()); // FIX: router.all("*") yerine router.use()
 
-/*
-1. Audit logs tablosunda işlem yapan kişilerin hangi tip işlemi kaç kere yaptığını veren bir sorgu.
-2. Kategori tablosunda tekil veri sayısı.
-3. Sistemde tanımlı kaç kullanıcı var?
-*/
-
-// 1. ENDPOINT
+// 1. Audit logs — kim hangi işlemi kaç kez yaptı
 router.get(
   "/auditlogs",
   auth.checkRoles("auditlogs_view"),
-  async (req, res) => {
-    try {
-      let body = req.body;
-      let filter = {};
-      if (typeof body.location === "string") filter.location = body.location;
-      let result = await AuditLogs.aggregate([
-        { $match: filter },
-        {
-          $group: {
-            _id: { email: "$email", proc_type: "$proc_type" },
-            count: { $sum: 1 },
-          },
+  asyncHandler(async (req, res) => {
+    const body = req.body;
+    const filter = {};
+    if (typeof body.location === "string") filter.location = body.location;
+
+    const result = await AuditLogs.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: { email: "$email", proc_type: "$proc_type" },
+          count: { $sum: 1 },
         },
-        { $sort: { count: -1 } },
-      ]);
-      res.json(Response.successResponse(result));
-    } catch (err) {
-      let errorResponse = Response.errorResponse(err, req.user?.language);
-      res.status(errorResponse.code).json(errorResponse);
-    }
-  },
+      },
+      { $sort: { count: -1 } },
+    ]);
+
+    res.json(Response.successResponse(result));
+  }),
 );
 
-// 2. ENDPOINT
+// 2. Kategorilerdeki tekil veri sayısı
 router.get(
   "/categories/unique",
   auth.checkRoles("category_view"),
-  async (req, res) => {
-    try {
-      let body = req.body;
-      let filter = {};
-      if (typeof body.is_active === "boolean")
-        filter.is_active = body.is_active;
-
-      let result = await Categories.distinct("name", filter);
-      res.json(Response.successResponse({ result, count: result.length }));
-    } catch (err) {
-      let errorResponse = Response.errorResponse(err, req.user?.language);
-      res.status(errorResponse.code).json(errorResponse);
-    }
-  },
-);
-
-// 3. ENDPOINT
-
-router.get("/users/count", auth.checkRoles("user_view"), async (req, res) => {
-  try {
-    let body = req.body;
-    let filter = {};
+  asyncHandler(async (req, res) => {
+    const body = req.body;
+    const filter = {};
     if (typeof body.is_active === "boolean") filter.is_active = body.is_active;
 
-    let result = await Users.countDocuments(filter);
+    const result = await Categories.distinct("name", filter);
+    res.json(Response.successResponse({ result, count: result.length }));
+  }),
+);
+
+// 3. Sistemdeki kullanıcı sayısı
+router.get(
+  "/users/count",
+  auth.checkRoles("user_view"),
+  asyncHandler(async (req, res) => {
+    const body = req.body;
+    const filter = {};
+    if (typeof body.is_active === "boolean") filter.is_active = body.is_active;
+
+    const result = await Users.countDocuments(filter);
     res.json(Response.successResponse({ count: result }));
-  } catch (err) {
-    let errorResponse = Response.errorResponse(err, req.user?.language);
-    res.status(errorResponse.code).json(errorResponse);
-  }
-});
+  }),
+);
+
 module.exports = router;

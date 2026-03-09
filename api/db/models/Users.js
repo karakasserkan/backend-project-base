@@ -4,6 +4,9 @@ const validator = require("validator");
 const { DEFAULT_LANG } = require("../../config");
 const CustomError = require("../../lib/Error");
 const bcrypt = require("bcrypt-nodejs");
+const I18n = require("../../lib/i18n");
+
+const i18n = new I18n(DEFAULT_LANG);
 
 const schema = mongoose.Schema(
   {
@@ -35,7 +38,7 @@ class Users extends mongoose.Model {
     return bcrypt.compareSync(password, this.password);
   }
 
-  static validateFieldsBeforeAuth(email, password) {
+  static validateFieldsBeforeAuth(email, password, lang = DEFAULT_LANG) {
     if (
       typeof password !== "string" ||
       password.length < PASS_LENGTH ||
@@ -43,8 +46,8 @@ class Users extends mongoose.Model {
     ) {
       throw new CustomError(
         HTTP_CODES.UNAUTHORIZED,
-        "Invalid email or password",
-        "email or password wrong",
+        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", lang),
+        i18n.translate("USERS.AUTH_ERROR", lang),
       );
     }
     return null;

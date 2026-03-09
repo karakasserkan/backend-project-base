@@ -4,22 +4,22 @@ const Response = require("../lib/Response");
 const AuditLogs = require("../db/models/AuditLogs");
 const moment = require("moment");
 const auth = require("../lib/auth")();
+const asyncHandler = require("../lib/asyncHandler");
 
-router.all("*", auth.authenticate(), (req, res, next) => {
-  next();
-});
+router.use(auth.authenticate());
 
-/* GET audit logs listing. */
-router.post("/", auth.checkRoles("auditlogs_view"), async (req, res) => {
-  try {
-    let body = req.body;
-    let query = {};
-    let skip = body.skip;
-    let limit = body.limit;
+router.post(
+  "/",
+  auth.checkRoles("auditlogs_view"),
+  asyncHandler(async (req, res) => {
+    const body = req.body;
+    const query = {};
 
-    if (typeof body.skip !== "number" || body.skip < 0) skip = 0;
-
-    if (typeof body.limit !== "number" || body.limit > 500) limit = 500;
+    // FIX: Daha temiz skip/limit tanımı
+    const skip =
+      typeof body.skip === "number" && body.skip >= 0 ? body.skip : 0;
+    const limit =
+      typeof body.limit === "number" && body.limit <= 500 ? body.limit : 500;
 
     if (body.begin_date && body.end_date) {
       query.created_at = {
@@ -33,16 +33,13 @@ router.post("/", auth.checkRoles("auditlogs_view"), async (req, res) => {
       };
     }
 
-    let auditLogs = await AuditLogs.find(query)
+    const auditLogs = await AuditLogs.find(query)
       .sort({ created_at: -1 })
       .skip(skip)
       .limit(limit);
 
     res.json(Response.successResponse(auditLogs));
-  } catch (err) {
-    let errorResponse = Response.errorResponse(err, req.user?.language);
-    res.status(errorResponse.code).json(errorResponse);
-  }
-});
+  }),
+);
 
 module.exports = router;

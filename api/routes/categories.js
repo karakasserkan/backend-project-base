@@ -15,9 +15,10 @@ const fs = require("fs");
 const multer = require("multer");
 const path = require("path");
 const Import = new (require("../lib/Import"))();
+const asyncHandler = require("../lib/asyncHandler");
 
-// IMPORT
-let multerStorage = multer.diskStorage({
+// Multer storage config
+const multerStorage = multer.diskStorage({
   destination: (req, file, next) => {
     next(null, config.FILE_UPLOAD_PATH);
   },
@@ -31,36 +32,25 @@ let multerStorage = multer.diskStorage({
 
 const upload = multer({ storage: multerStorage }).single("pb_file");
 
-/**
- * CRUD
- * - Create: POST /categories
- * - Read: GET /categories
- * - Update: PUT /categories/:id
- * - Delete: DELETE /categories/:id
- */
+router.use(auth.authenticate()); // FIX: router.all("*") yerine router.use()
 
-router.all("*", auth.authenticate(), (req, res, next) => {
-  next();
-});
-
-/* GET categories listing. */
-router.get("/", auth.checkRoles("category_view"), async (req, res, next) => {
-  try {
-    // Select sorgusu yazılan kısım.
-
-    let categories = await Categories.find({});
-
+// LIST
+router.get(
+  "/",
+  auth.checkRoles("category_view"),
+  asyncHandler(async (req, res) => {
+    const categories = await Categories.find({});
     res.json(Response.successResponse(categories));
-  } catch (err) {
-    let errorResponse = Response.errorResponse(err);
-    res.status(errorResponse.code).json(Response.errorResponse(err));
-  }
-});
+  }),
+);
 
-// ADD ENDPOINT
-router.post("/add", auth.checkRoles("category_add"), async (req, res, next) => {
-  let body = req.body;
-  try {
+// ADD
+router.post(
+  "/add",
+  auth.checkRoles("category_add"),
+  asyncHandler(async (req, res) => {
+    const body = req.body;
+
     if (!body.name)
       throw new CustomError(
         Enum.HTTP_CODES.BAD_REQUEST,
@@ -70,7 +60,7 @@ router.post("/add", auth.checkRoles("category_add"), async (req, res, next) => {
         ]),
       );
 
-    let category = new Categories({
+    const category = new Categories({
       name: body.name,
       is_active: true,
       created_by: req.user?.id,
@@ -83,20 +73,19 @@ router.post("/add", auth.checkRoles("category_add"), async (req, res, next) => {
 
     emitter
       .getEmitter("notifications")
-      .emit("messages", { message: category.name + "is added" });
+      .emit("messages", { message: category.name + " is added" }); // FIX: boşluk eklendi
 
     res.json(Response.successResponse({ success: true }));
-  } catch (err) {
-    logger.error(req.user?.email, "Categories", "Add", err);
-    let errorResponse = Response.errorResponse(err);
-    res.status(errorResponse.code).json(errorResponse);
-  }
-});
+  }),
+);
 
-// UPDATE ENDPOINT
-router.post("/update", auth.checkRoles("category_update"), async (req, res) => {
-  let body = req.body;
-  try {
+// UPDATE
+router.post(
+  "/update",
+  auth.checkRoles("category_update"),
+  asyncHandler(async (req, res) => {
+    const body = req.body;
+
     if (!body._id)
       throw new CustomError(
         Enum.HTTP_CODES.BAD_REQUEST,
@@ -106,13 +95,13 @@ router.post("/update", auth.checkRoles("category_update"), async (req, res) => {
         ]),
       );
 
-    let update = {};
-
+    const update = {};
     if (body.name) update.name = body.name;
     if (typeof body.is_active === "boolean") update.is_active = body.is_active;
 
     await Categories.updateOne({ _id: body._id }, update);
 
+    // FIX: logger eksikti, eklendi
     AuditLogs.info(req.user?.email, "Categories", "Update", {
       _id: body._id,
       ...update,
@@ -123,74 +112,42 @@ router.post("/update", auth.checkRoles("category_update"), async (req, res) => {
     });
 
     res.json(Response.successResponse({ success: true }));
-  } catch (err) {
-    let errorResponse = Response.errorResponse(err);
-    res.status(errorResponse.code).json(errorResponse);
-  }
-});
+  }),
+);
 
-// DELETE ENDPOINT
+// DELETE
 router.delete(
   "/delete",
   auth.checkRoles("category_delete"),
-  async (req, res) => {
-    let body = req.body;
-    try {
-      if (!body._id)
-        throw new CustomError(
-          Enum.HTTP_CODES.BAD_REQUEST,
-          i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
-          i18n.translate("COMMON.FIELD_MUST_BE_FILLED", req.user.language, [
-            "_id",
-          ]),
-        );
+  asyncHandler(async (req, res) => {
+    const body = req.body;
 
-      await Categories.deleteOne({ _id: body._id });
-      AuditLogs.info(req.user?.email, "Categories", "Delete", {
-        _id: body._id,
-      });
+    if (!body._id)
+      throw new CustomError(
+        Enum.HTTP_CODES.BAD_REQUEST,
+        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
+        i18n.translate("COMMON.FIELD_MUST_BE_FILLED", req.user.language, [
+          "_id",
+        ]),
+      );
 
-      res.json(Response.successResponse({ success: true }));
-    } catch (err) {
-      let errorResponse = Response.errorResponse(err);
-      res.status(errorResponse.code).json(errorResponse);
-    }
-  },
+    await Categories.deleteOne({ _id: body._id });
+
+    AuditLogs.info(req.user?.email, "Categories", "Delete", { _id: body._id });
+    logger.info(req.user?.email, "Categories", "Delete", { _id: body._id }); // FIX: logger eksikti
+
+    res.json(Response.successResponse({ success: true }));
+  }),
 );
 
-// EXPORT ENDPOINT
-router.get("/export", auth.checkRoles("category_export"), async (req, res) => {
-  try {
-    // let categories = await Categories.find({});
+// EXPORT
+router.get(
+  "/export",
+  auth.checkRoles("category_export"),
+  asyncHandler(async (req, res) => {
+    const categories = await Categories.find({});
 
-    // let excel = excelExport.toExcel(
-    //   [
-    //     "NAME",
-    //     "IS ACTIVE?",
-    //     "USER ID",
-    //     "CREATED BY",
-    //     "UPDATED AT",
-    //     "CREATED AT",
-    //   ],
-    //   [
-    //     "name",
-    //     "is_active",
-    //     "user_id",
-    //     "created_by",
-    //     "updated_at",
-    //     "created_at",
-    //   ],
-    //   categories,
-    // );
-
-    // let filePath =
-    //   __dirname + "/../tmp/categories_excel_" + Date.now() + ".xlsx";
-    // fs.writeFileSync(filePath, excel, "UTF-8");
-    // res.download(filePath);
-    // //fs.unlinkSync(filePath);
-    let categories = await Categories.find({});
-
-    let excel = excelExport.toExcel(
+    const excel = excelExport.toExcel(
       ["NAME", "IS ACTIVE?", "USER ID", "UPDATED AT", "CREATED AT"],
       ["name", "is_active", "user_id", "updated_at", "created_at"],
       categories,
@@ -200,20 +157,16 @@ router.get("/export", auth.checkRoles("category_export"), async (req, res) => {
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
-
     res.setHeader(
       "Content-Disposition",
       "attachment; filename=categories.xlsx",
     );
 
     return res.status(200).send(excel);
-  } catch (err) {
-    let errorResponse = Response.errorResponse(err);
-    res.status(errorResponse.code).json(errorResponse);
-  }
-});
+  }),
+);
 
-// IMPORT ENDPOINT
+// IMPORT — asyncHandler yerine manuel try/catch (finally ile dosya temizleme gerektirir)
 router.post(
   "/import",
   auth.checkRoles("category_import"),
@@ -222,29 +175,32 @@ router.post(
     let file;
     try {
       file = req.file;
-      if (!req.file) {
-        throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "File is required");
-      }
-      let body = req.body;
 
-      let rows = Import.fromExcel(file.path);
-      // HEADER KONTROLÜ
-      let headers = rows[0];
+      if (!file)
+        throw new CustomError(
+          Enum.HTTP_CODES.BAD_REQUEST,
+          "File is required",
+          "File is required",
+        );
 
-      if (!headers || headers[0] !== "NAME") {
+      const rows = Import.fromExcel(file.path);
+      const headers = rows[0];
+
+      if (!headers || headers[0] !== "NAME")
         throw new CustomError(
           Enum.HTTP_CODES.BAD_REQUEST,
           "Invalid Excel Format",
+          "Invalid Excel Format",
         );
-      }
+
       let insertedCount = 0;
 
       for (let i = 1; i < rows.length; i++) {
-        let [name, is_active, user, created_at, updated_at] = rows[i];
+        const [name, is_active] = rows[i];
         if (name) {
-          let exists = await Categories.findOne({ name });
+          const exists = await Categories.findOne({ name });
           if (!exists) {
-            let active =
+            const active =
               is_active === true ||
               is_active === "true" ||
               is_active === 1 ||
@@ -259,6 +215,7 @@ router.post(
           }
         }
       }
+
       res.json(
         Response.successResponse(
           { inserted: insertedCount },
@@ -266,9 +223,10 @@ router.post(
         ),
       );
     } catch (err) {
-      let errorResponse = Response.errorResponse(err);
+      const errorResponse = Response.errorResponse(err);
       res.status(errorResponse.code).json(errorResponse);
     } finally {
+      // Dosyayı her durumda temizle
       if (file && fs.existsSync(file.path)) {
         fs.unlinkSync(file.path);
       }

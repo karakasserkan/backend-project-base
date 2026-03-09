@@ -9,16 +9,18 @@ const Enum = require("../config/Enum");
 const auth = require("../lib/auth")();
 const config = require("../config");
 const i18n = new (require("../lib/i18n"))(config.DEFAULT_LANG);
-const UserRoles = require("../db/models/UserRoles.js");
+const UserRoles = require("../db/models/UserRoles");
+const asyncHandler = require("../lib/asyncHandler");
 
 router.use(auth.authenticate());
 
-// LIST — Permission listesiyle birlikte rolleri döner
-router.get("/", auth.checkRoles("role_view"), async (req, res) => {
-  try {
+// LIST
+router.get(
+  "/",
+  auth.checkRoles("role_view"),
+  asyncHandler(async (req, res) => {
     const roles = await Roles.find({}).lean();
 
-    // FIX: Tek tek await yerine paralel sorgu (performans)
     const rolesWithPermissions = await Promise.all(
       roles.map(async (role) => {
         const permissions = await RolePrivileges.find({ role_id: role._id });
@@ -27,16 +29,16 @@ router.get("/", auth.checkRoles("role_view"), async (req, res) => {
     );
 
     res.json(Response.successResponse(rolesWithPermissions));
-  } catch (err) {
-    const errorResponse = Response.errorResponse(err);
-    res.status(errorResponse.code).json(errorResponse);
-  }
-});
+  }),
+);
 
 // ADD
-router.post("/add", auth.checkRoles("role_add"), async (req, res) => {
-  const body = req.body;
-  try {
+router.post(
+  "/add",
+  auth.checkRoles("role_add"),
+  asyncHandler(async (req, res) => {
+    const body = req.body;
+
     if (!body.role_name)
       throw new CustomError(
         Enum.HTTP_CODES.BAD_REQUEST,
@@ -60,7 +62,6 @@ router.post("/add", auth.checkRoles("role_add"), async (req, res) => {
         ]),
       );
 
-    // FIX: Geçersiz permission key kontrolü
     const validKeys = role_privileges.privileges.map((p) => p.key);
     const invalidPerms = body.permissions.filter((p) => !validKeys.includes(p));
     if (invalidPerms.length > 0)
@@ -76,7 +77,6 @@ router.post("/add", auth.checkRoles("role_add"), async (req, res) => {
       created_by: req.user?.id,
     });
 
-    // FIX: insertMany ile tek seferde kaydet (performans)
     await RolePrivileges.insertMany(
       body.permissions.map((perm) => ({
         role_id: role._id,
@@ -86,16 +86,16 @@ router.post("/add", auth.checkRoles("role_add"), async (req, res) => {
     );
 
     res.json(Response.successResponse({ success: true }));
-  } catch (err) {
-    const errorResponse = Response.errorResponse(err);
-    res.status(errorResponse.code).json(errorResponse);
-  }
-});
+  }),
+);
 
 // UPDATE
-router.post("/update", auth.checkRoles("role_update"), async (req, res) => {
-  const body = req.body;
-  try {
+router.post(
+  "/update",
+  auth.checkRoles("role_update"),
+  asyncHandler(async (req, res) => {
+    const body = req.body;
+
     if (!body._id)
       throw new CustomError(
         Enum.HTTP_CODES.BAD_REQUEST,
@@ -105,15 +105,16 @@ router.post("/update", auth.checkRoles("role_update"), async (req, res) => {
         ]),
       );
 
-    let userRole = await UserRoles.findOne({
+    const userRole = await UserRoles.findOne({
       user_id: req.user.id,
       role_id: body._id,
     });
+
     if (userRole)
       throw new CustomError(
         Enum.HTTP_CODES.FORBIDDEN,
-        i18n.translate("COMMON.NEED_PERMISSIONS", req.user.language),
-        i18n.translate("COMMON.NEED_PERMISSIONS", req.user.language),
+        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
+        "You cannot update a role assigned to yourself",
       );
 
     const updates = {};
@@ -133,14 +134,12 @@ router.post("/update", auth.checkRoles("role_update"), async (req, res) => {
       );
       const toAdd = body.permissions.filter((x) => !existingKeys.includes(x));
 
-      // FIX: deleteOne → deleteMany (birden fazla kaldırılabilir)
       if (toRemove.length > 0)
         await RolePrivileges.deleteMany({
           _id: { $in: toRemove.map((x) => x._id) },
         });
 
       if (toAdd.length > 0) {
-        // Kullanıcının kendi yetkilerini al
         const myRoles = await UserRoles.find({ user_id: req.user.id });
         const myPrivileges = await RolePrivileges.find({
           role_id: { $in: myRoles.map((r) => r.role_id) },
@@ -154,6 +153,7 @@ router.post("/update", auth.checkRoles("role_update"), async (req, res) => {
             i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
             "You cannot grant permissions you do not have",
           );
+
         await RolePrivileges.insertMany(
           toAdd.map((perm) => ({
             role_id: body._id,
@@ -166,16 +166,16 @@ router.post("/update", auth.checkRoles("role_update"), async (req, res) => {
 
     await Roles.updateOne({ _id: body._id }, updates);
     res.json(Response.successResponse({ success: true }));
-  } catch (err) {
-    const errorResponse = Response.errorResponse(err);
-    res.status(errorResponse.code).json(errorResponse);
-  }
-});
+  }),
+);
 
 // DELETE
-router.delete("/delete", auth.checkRoles("role_delete"), async (req, res) => {
-  const body = req.body;
-  try {
+router.delete(
+  "/delete",
+  auth.checkRoles("role_delete"),
+  asyncHandler(async (req, res) => {
+    const body = req.body;
+
     if (!body._id)
       throw new CustomError(
         Enum.HTTP_CODES.BAD_REQUEST,
@@ -186,17 +186,17 @@ router.delete("/delete", auth.checkRoles("role_delete"), async (req, res) => {
       );
 
     await Roles.deleteOne({ _id: body._id });
-    // Not: Roles model'i RolePrivileges'ı otomatik siliyor (Roles.js'deki override)
     res.json(Response.successResponse({ success: true }));
-  } catch (err) {
-    const errorResponse = Response.errorResponse(err);
-    res.status(errorResponse.code).json(errorResponse);
-  }
-});
+  }),
+);
 
-// Tüm geçerli permission key'lerini döner (frontend için kullanışlı)
-router.get("/role_privileges", auth.checkRoles("role_view"), (req, res) => {
-  res.json(Response.successResponse(role_privileges));
-});
+// Tüm geçerli permission key'lerini döner
+router.get(
+  "/role_privileges",
+  auth.checkRoles("role_view"),
+  asyncHandler(async (req, res) => {
+    res.json(Response.successResponse(role_privileges));
+  }),
+);
 
 module.exports = router;

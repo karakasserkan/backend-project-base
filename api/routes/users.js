@@ -16,38 +16,41 @@ const RolePrivileges = require("../db/models/RolePrivileges");
 const rolePrivConfig = require("../config/role_privileges");
 const { rateLimit } = require("express-rate-limit");
 const { MongoDBStore } = require("@iroomit/rate-limit-mongodb");
+const asyncHandler = require("../lib/asyncHandler");
 
-// LIMIT ENDPOINT
-const limiter = rateLimit({
-  store: new MongoDBStore({
-    uri: config.CONNECTION_STRING,
-    collectionName: "rateLimits",
-    resetExpireDateOnChange: true, // pencere süresini her istekte sıfırlar
-    expireTimeMs: 15 * 60 * 1000, // 15 min
-  }),
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  limit: 5, // Limit each IP to 5 requests per `window` (here, per 15 minutes).
-  // standardHeaders: "draft-8", // draft-6: `RateLimit-*` headers; draft-7 & draft-8: combined `RateLimit` header
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers.
-  ipv6Subnet: 56, // Set to 60 or 64 to be less aggressive, or 52 or 48 to be more aggressive
-});
+// Rate limiter — sadece production'da aktif
+const limiter =
+  process.env.NODE_ENV === "production"
+    ? rateLimit({
+        store: new MongoDBStore({
+          uri: config.CONNECTION_STRING,
+          collectionName: "rateLimits",
+          resetExpireDateOnChange: true,
+          expireTimeMs: 15 * 60 * 1000,
+        }),
+        windowMs: 15 * 60 * 1000,
+        limit: 5,
+        legacyHeaders: false,
+        ipv6Subnet: 56,
+      })
+    : (req, res, next) => next();
 
 // ─── PUBLIC ENDPOINTS ────────────────────────────────────────────────────────
 
-// REGISTER — Sadece sistemde hiç kullanıcı yoksa çalışır, ilk SUPER_ADMIN'i oluşturur
-router.post("/register", async (req, res) => {
-  try {
+// REGISTER
+router.post(
+  "/register",
+  asyncHandler(async (req, res) => {
     const body = req.body;
     const lang = req.headers["accept-language"] || config.DEFAULT_LANG;
 
     const existingUser = await Users.findOne({});
-    if (existingUser) {
+    if (existingUser)
       throw new CustomError(
-        Enum.HTTP_CODES.FORBIDDEN, // FIX: 404 değil 403 daha semantik doğru
+        Enum.HTTP_CODES.FORBIDDEN,
         i18n.translate("COMMON.VALIDATION_ERROR_TITLE", lang),
         i18n.translate("AUTH.REGISTER_DISABLED", lang),
       );
-    }
 
     if (!body.email)
       throw new CustomError(
@@ -91,10 +94,7 @@ router.post("/register", async (req, res) => {
       created_by: createdUser._id,
     });
 
-    await UserRoles.create({
-      role_id: role._id,
-      user_id: createdUser._id,
-    });
+    await UserRoles.create({ role_id: role._id, user_id: createdUser._id });
 
     const privilegeDocs = rolePrivConfig.privileges.map((p) => ({
       role_id: role._id,
@@ -108,19 +108,18 @@ router.post("/register", async (req, res) => {
       .json(
         Response.successResponse({ success: true }, Enum.HTTP_CODES.CREATED),
       );
-  } catch (err) {
-    const errorResponse = Response.errorResponse(err);
-    res.status(errorResponse.code).json(errorResponse);
-  }
-});
+  }),
+);
 
-// AUTH — Email/şifre ile giriş, JWT token döner
-router.post("/auth", limiter, async (req, res) => {
-  try {
+// AUTH
+router.post(
+  "/auth",
+  limiter,
+  asyncHandler(async (req, res) => {
     const { email, password } = req.body;
     const lang = req.headers["accept-language"] || config.DEFAULT_LANG;
 
-    Users.validateFieldsBeforeAuth(email, password);
+    Users.validateFieldsBeforeAuth(email, password, lang);
 
     const user = await Users.findOne({ email });
 
@@ -155,37 +154,39 @@ router.post("/auth", limiter, async (req, res) => {
         },
       }),
     );
-  } catch (err) {
-    const errorResponse = Response.errorResponse(err);
-    res.status(errorResponse.code).json(errorResponse);
-  }
-});
+  }),
+);
 
-// ─── PROTECTED ENDPOINTS (JWT gerektirir) ────────────────────────────────────
+// ─── PROTECTED ENDPOINTS ─────────────────────────────────────────────────────
 router.use(auth.authenticate());
 
 // LIST
-router.get("/", auth.checkRoles("user_view"), async (req, res) => {
-  try {
+router.get(
+  "/",
+  auth.checkRoles("user_view"),
+  asyncHandler(async (req, res) => {
     const users = await Users.find({}, { password: 0 }).lean();
 
-    for (let i = 0; i < users.length; i++) {
-      let roles = await UserRoles.find({ user_id: users[i]._id }).populate(
-        "role_id",
-      );
-      users[i].roles = roles;
-    }
-    res.json(Response.successResponse(users));
-  } catch (err) {
-    const errorResponse = Response.errorResponse(err);
-    res.status(errorResponse.code).json(errorResponse);
-  }
-});
+    const usersWithRoles = await Promise.all(
+      users.map(async (user) => {
+        const roles = await UserRoles.find({ user_id: user._id }).populate(
+          "role_id",
+        );
+        return { ...user, roles };
+      }),
+    );
+
+    res.json(Response.successResponse(usersWithRoles));
+  }),
+);
 
 // ADD
-router.post("/add", auth.checkRoles("user_add"), async (req, res) => {
-  const body = req.body;
-  try {
+router.post(
+  "/add",
+  auth.checkRoles("user_add"),
+  asyncHandler(async (req, res) => {
+    const body = req.body;
+
     if (!body.email)
       throw new CustomError(
         Enum.HTTP_CODES.BAD_REQUEST,
@@ -232,7 +233,6 @@ router.post("/add", auth.checkRoles("user_add"), async (req, res) => {
         ]),
       );
 
-    // FIX: Duplicate email kontrolü eklendi
     const existingUser = await Users.findOne({ email: body.email });
     if (existingUser)
       throw new CustomError(
@@ -256,7 +256,6 @@ router.post("/add", auth.checkRoles("user_add"), async (req, res) => {
       phone_number: body.phone_number,
     });
 
-    // FIX: insertMany ile tek seferde kaydet (performans)
     await UserRoles.insertMany(
       roles.map((role) => ({ role_id: role._id, user_id: user._id })),
     );
@@ -266,19 +265,17 @@ router.post("/add", auth.checkRoles("user_add"), async (req, res) => {
       .json(
         Response.successResponse({ success: true }, Enum.HTTP_CODES.CREATED),
       );
-  } catch (err) {
-    const errorResponse = Response.errorResponse(err);
-    res.status(errorResponse.code).json(errorResponse);
-  }
-});
+  }),
+);
 
 // UPDATE
-router.post("/update", auth.checkRoles("user_update"), async (req, res) => {
-  const body = req.body;
-  const updates = {};
+router.post(
+  "/update",
+  auth.checkRoles("user_update"),
+  asyncHandler(async (req, res) => {
+    const body = req.body;
+    const updates = {};
 
-  // FIX: try/catch dışındaki throw yakalanmıyordu, içine alındı
-  try {
     if (!body._id)
       throw new CustomError(
         Enum.HTTP_CODES.BAD_REQUEST,
@@ -286,6 +283,13 @@ router.post("/update", auth.checkRoles("user_update"), async (req, res) => {
         i18n.translate("COMMON.FIELD_MUST_BE_FILLED", req.user.language, [
           "_id",
         ]),
+      );
+
+    if (body._id == req.user.id)
+      throw new CustomError(
+        Enum.HTTP_CODES.FORBIDDEN,
+        i18n.translate("COMMON.NEED_PERMISSIONS", req.user.language),
+        i18n.translate("COMMON.NEED_PERMISSIONS", req.user.language),
       );
 
     if (body.password && body.password.length >= Enum.PASS_LENGTH)
@@ -299,14 +303,6 @@ router.post("/update", auth.checkRoles("user_update"), async (req, res) => {
     if (body.first_name) updates.first_name = body.first_name;
     if (body.last_name) updates.last_name = body.last_name;
     if (body.phone_number) updates.phone_number = body.phone_number;
-
-    if (body._id == req.user.id) {
-      throw new CustomError(
-        Enum.HTTP_CODES.FORBIDDEN,
-        i18n.translate("COMMON.NEED_PERMISSIONS", req.user.language),
-        i18n.translate("COMMON.NEED_PERMISSIONS", req.user.language),
-      );
-    }
 
     if (Array.isArray(body.roles) && body.roles.length > 0) {
       const userRoles = await UserRoles.find({ user_id: body._id });
@@ -331,17 +327,16 @@ router.post("/update", auth.checkRoles("user_update"), async (req, res) => {
 
     await Users.updateOne({ _id: body._id }, { $set: updates });
     res.json(Response.successResponse({ success: true }));
-  } catch (err) {
-    const errorResponse = Response.errorResponse(err);
-    res.status(errorResponse.code).json(errorResponse);
-  }
-});
+  }),
+);
 
 // DELETE
-router.delete("/delete", auth.checkRoles("user_delete"), async (req, res) => {
-  const body = req.body;
-  try {
-    // FIX: try/catch dışındaki throw yakalanmıyordu, içine alındı
+router.delete(
+  "/delete",
+  auth.checkRoles("user_delete"),
+  asyncHandler(async (req, res) => {
+    const body = req.body;
+
     if (!body._id)
       throw new CustomError(
         Enum.HTTP_CODES.BAD_REQUEST,
@@ -351,7 +346,6 @@ router.delete("/delete", auth.checkRoles("user_delete"), async (req, res) => {
         ]),
       );
 
-    // FIX: Kendini silmeyi engelle
     if (body._id.toString() === req.user.id.toString())
       throw new CustomError(
         Enum.HTTP_CODES.BAD_REQUEST,
@@ -363,10 +357,7 @@ router.delete("/delete", auth.checkRoles("user_delete"), async (req, res) => {
     await UserRoles.deleteMany({ user_id: body._id });
 
     res.json(Response.successResponse({ success: true }));
-  } catch (err) {
-    const errorResponse = Response.errorResponse(err);
-    res.status(errorResponse.code).json(errorResponse);
-  }
-});
+  }),
+);
 
 module.exports = router;

@@ -6,37 +6,35 @@ var createError = require("http-errors");
 var express = require("express");
 var path = require("path");
 var cookieParser = require("cookie-parser");
-var logger = require("morgan");
+var morgan = require("morgan");
+const mongoSanitize = require("express-mongo-sanitize");
+const helmetMiddleware = require("./config/helmet");
+const corsMiddleware = require("./config/cors");
+const errorHandler = require("./lib/errorHandler");
 
 var app = express();
 
-// view engine setup
-app.set("views", path.join(__dirname, "views"));
-app.set("view engine", "ejs");
+// ─── GÜVENLIK MİDDLEWARE'LERİ  ─────────────────────────────
+app.use(helmetMiddleware);
+app.use(corsMiddleware);
+app.use(mongoSanitize()); // NoSQL injection koruması
 
-app.use(logger("dev"));
+// ─── GENEL MİDDLEWARE'LER ────────────────────────────────────────────────────
+app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
-// Dinamik hale getirilmiş route yapısı. Yeni bir route eklemek istediğimizde sadece ilgili dosyayı oluşturup içine gerekli kodları yazmamız yeterli olacaktır.
+// ─── ROUTES ──────────────────────────────────────────────────────────────────
 app.use("/api", require("./routes/index"));
 
-// catch 404 and forward to error handler
-app.use(function (req, res, next) {
+// ─── 404 HANDLER ─────────────────────────────────────────────────────────────
+app.use((req, res, next) => {
   next(createError(404));
 });
 
-// error handler
-app.use(function (err, req, res, next) {
-  // set locals, only providing error in development
-  res.locals.message = err.message;
-  res.locals.error = req.app.get("env") === "development" ? err : {};
-
-  // render the error page
-  res.status(err.status || 500);
-  res.render("error");
-});
+// ─── GLOBAL ERROR HANDLER ───────────────────────────────────────
+app.use(errorHandler);
 
 module.exports = app;
