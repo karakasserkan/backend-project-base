@@ -1,12 +1,19 @@
 const CustomError = require("./Error");
 const { HTTP_CODES } = require("../config/Enum");
+const config = require("../config");
+const i18n = new (require("./i18n"))(config.DEFAULT_LANG);
 
 module.exports = (err, req, res, next) => {
   console.error(err);
 
-  // CustomError ise direkt kullan
+  // Kullanıcının diline göre hata dön
+  const lang =
+    req.user?.language || req.headers["accept-language"] || config.DEFAULT_LANG;
+
+  // CustomError — bizim fırlattığımız hatalar
   if (err instanceof CustomError) {
     return res.status(err.code).json({
+      success: false,
       code: err.code,
       error: {
         message: err.message,
@@ -18,10 +25,11 @@ module.exports = (err, req, res, next) => {
   // MongoDB duplicate key
   if (err.message?.includes("E11000 duplicate key error")) {
     return res.status(HTTP_CODES.CONFLICT).json({
+      success: false,
       code: HTTP_CODES.CONFLICT,
       error: {
-        message: "Already exists",
-        description: err.message,
+        message: i18n.translate("COMMON.ALREADY_EXISTS", lang),
+        description: i18n.translate("COMMON.ALREADY_EXISTS", lang),
       },
     });
   }
@@ -29,9 +37,10 @@ module.exports = (err, req, res, next) => {
   // MongoDB validation error
   if (err.name === "ValidationError") {
     return res.status(HTTP_CODES.BAD_REQUEST).json({
+      success: false,
       code: HTTP_CODES.BAD_REQUEST,
       error: {
-        message: "Validation Error",
+        message: i18n.translate("COMMON.VALIDATION_ERROR_TITLE", lang),
         description: Object.values(err.errors)
           .map((e) => e.message)
           .join(", "),
@@ -42,9 +51,10 @@ module.exports = (err, req, res, next) => {
   // JWT hataları
   if (err.name === "UnauthorizedError" || err.name === "JsonWebTokenError") {
     return res.status(HTTP_CODES.UNAUTHORIZED).json({
+      success: false,
       code: HTTP_CODES.UNAUTHORIZED,
       error: {
-        message: "Invalid token",
+        message: i18n.translate("USERS.AUTH_ERROR", lang),
         description: err.message,
       },
     });
@@ -52,9 +62,10 @@ module.exports = (err, req, res, next) => {
 
   // Genel hata
   return res.status(HTTP_CODES.INTERNAL_SERVER_ERROR).json({
+    success: false,
     code: HTTP_CODES.INTERNAL_SERVER_ERROR,
     error: {
-      message: "Internal Server Error",
+      message: i18n.translate("COMMON.UNKNOWN_ERROR", lang),
       description:
         process.env.NODE_ENV !== "production"
           ? err.message

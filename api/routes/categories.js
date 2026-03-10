@@ -4,7 +4,6 @@ const Categories = require("../db/models/Categories");
 const Response = require("../lib/Response");
 const CustomError = require("../lib/Error");
 const Enum = require("../config/Enum");
-const AuditLogs = require("../lib/AuditLogs");
 const logger = require("../lib/logger/LoggerClass");
 const auth = require("../lib/auth")();
 const config = require("../config");
@@ -32,7 +31,7 @@ const multerStorage = multer.diskStorage({
 
 const upload = multer({ storage: multerStorage }).single("pb_file");
 
-router.use(auth.authenticate()); // FIX: router.all("*") yerine router.use()
+router.use(auth.authenticate()); // router.all("*") yerine router.use()
 
 // LIST
 router.get(
@@ -68,12 +67,11 @@ router.post(
 
     await category.save();
 
-    AuditLogs.info(req.user?.email, "Categories", "Add", category);
     logger.info(req.user?.email, "Categories", "Add", category);
 
     emitter
       .getEmitter("notifications")
-      .emit("messages", { message: category.name + " is added" }); // FIX: boşluk eklendi
+      .emit("messages", { message: category.name + " is added" });
 
     res.json(Response.successResponse({ success: true }));
   }),
@@ -101,11 +99,6 @@ router.post(
 
     await Categories.updateOne({ _id: body._id }, update);
 
-    // FIX: logger eksikti, eklendi
-    AuditLogs.info(req.user?.email, "Categories", "Update", {
-      _id: body._id,
-      ...update,
-    });
     logger.info(req.user?.email, "Categories", "Update", {
       _id: body._id,
       ...update,
@@ -133,8 +126,7 @@ router.delete(
 
     await Categories.deleteOne({ _id: body._id });
 
-    AuditLogs.info(req.user?.email, "Categories", "Delete", { _id: body._id });
-    logger.info(req.user?.email, "Categories", "Delete", { _id: body._id }); // FIX: logger eksikti
+    logger.info(req.user?.email, "Categories", "Delete", { _id: body._id });
 
     res.json(Response.successResponse({ success: true }));
   }),
@@ -166,7 +158,7 @@ router.get(
   }),
 );
 
-// IMPORT — asyncHandler yerine manuel try/catch (finally ile dosya temizleme gerektirir)
+// IMPORT
 router.post(
   "/import",
   auth.checkRoles("category_import"),

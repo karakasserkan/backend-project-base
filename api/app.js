@@ -7,6 +7,7 @@ var express = require("express");
 var path = require("path");
 var cookieParser = require("cookie-parser");
 var morgan = require("morgan");
+const LoggerClass = require("./lib/logger/LoggerClass");
 const mongoSanitize = require("express-mongo-sanitize");
 const helmetMiddleware = require("./config/helmet");
 const corsMiddleware = require("./config/cors");
@@ -25,6 +26,15 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
+
+// LOGGER
+app.use((req, res, next) => {
+  LoggerClass.http(req.user?.email || "anonymous", req.path, req.method, {
+    ip: req.ip,
+    userAgent: req.headers["user-agent"],
+  });
+  next();
+});
 
 // ─── ROUTES ──────────────────────────────────────────────────────────────────
 app.use("/api", require("./routes/index"));
