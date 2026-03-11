@@ -5,6 +5,7 @@ const AuditLogs = require("../db/models/AuditLogs");
 const moment = require("moment");
 const auth = require("../lib/auth")();
 const asyncHandler = require("../lib/asyncHandler");
+const paginate = require("../lib/paginate");
 
 //SWAGGER
 /**
@@ -78,11 +79,9 @@ router.post(
     const body = req.body;
     const query = {};
 
-    // FIX: Daha temiz skip/limit tanımı
-    const skip =
-      typeof body.skip === "number" && body.skip >= 0 ? body.skip : 0;
-    const limit =
-      typeof body.limit === "number" && body.limit <= 500 ? body.limit : 500;
+    const page = Math.max(1, parseInt(body.page) || 1);
+    const limit = Math.min(500, Math.max(1, parseInt(body.limit) || 20));
+    const skip = (page - 1) * limit;
 
     if (body.begin_date && body.end_date) {
       query.created_at = {
@@ -96,13 +95,24 @@ router.post(
       };
     }
 
-    const auditLogs = await AuditLogs.find(query)
-      .sort({ created_at: -1 })
-      .skip(skip)
-      .limit(limit);
+    const [auditLogs, total] = await Promise.all([
+      AuditLogs.find(query).sort({ created_at: -1 }).skip(skip).limit(limit),
+      AuditLogs.countDocuments(query),
+    ]);
 
-    res.json(Response.successResponse(auditLogs));
+    res.json(
+      Response.successResponse({
+        data: auditLogs,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          hasNext: page < Math.ceil(total / limit),
+          hasPrev: page > 1,
+        },
+      }),
+    );
   }),
 );
-
 module.exports = router;

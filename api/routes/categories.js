@@ -15,6 +15,7 @@ const multer = require("multer");
 const path = require("path");
 const Import = new (require("../lib/Import"))();
 const asyncHandler = require("../lib/asyncHandler");
+const paginate = require("../lib/paginate");
 
 // Multer storage config
 const multerStorage = multer.diskStorage({
@@ -197,8 +198,13 @@ router.get(
   "/",
   auth.checkRoles("category_view"),
   asyncHandler(async (req, res) => {
-    const categories = await Categories.find({});
-    res.json(Response.successResponse(categories));
+    const { page, limit, is_active } = req.query;
+    const query = {};
+    if (typeof is_active !== "undefined")
+      query.is_active = is_active === "true";
+
+    const result = await paginate(Categories, query, { page, limit });
+    res.json(Response.successResponse(result));
   }),
 );
 

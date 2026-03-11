@@ -18,6 +18,7 @@ const { rateLimit } = require("express-rate-limit");
 const { MongoDBStore } = require("@iroomit/rate-limit-mongodb");
 const asyncHandler = require("../lib/asyncHandler");
 const mongoose = require("mongoose");
+const paginate = require("../lib/paginate");
 
 // Rate limiter — sadece production'da aktif
 const limiter =
@@ -408,7 +409,23 @@ router.get(
   "/",
   auth.checkRoles("user_view"),
   asyncHandler(async (req, res) => {
-    const users = await Users.find({}, { password: 0 }).lean();
+    const { page, limit, is_active } = req.query;
+    const query = {};
+    if (typeof is_active !== "undefined")
+      query.is_active = is_active === "true";
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(500, Math.max(1, parseInt(limit) || 20));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [users, total] = await Promise.all([
+      Users.find(query, { password: 0 })
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      Users.countDocuments(query),
+    ]);
 
     const usersWithRoles = await Promise.all(
       users.map(async (user) => {
@@ -419,7 +436,19 @@ router.get(
       }),
     );
 
-    res.json(Response.successResponse(usersWithRoles));
+    res.json(
+      Response.successResponse({
+        data: usersWithRoles,
+        pagination: {
+          total,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(total / limitNum),
+          hasNext: pageNum < Math.ceil(total / limitNum),
+          hasPrev: pageNum > 1,
+        },
+      }),
+    );
   }),
 );
 
@@ -560,28 +589,46 @@ router.post(
     if (body.last_name) updates.last_name = body.last_name;
     if (body.phone_number) updates.phone_number = body.phone_number;
 
-    if (Array.isArray(body.roles) && body.roles.length > 0) {
-      const userRoles = await UserRoles.find({ user_id: body._id });
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        if (Array.isArray(body.roles) && body.roles.length > 0) {
+          const userRoles = await UserRoles.find({ user_id: body._id }).session(
+            session,
+          );
 
-      const removedRoles = userRoles.filter(
-        (x) => !body.roles.includes(x.role_id.toString()),
-      );
-      const newRoles = body.roles.filter(
-        (x) => !userRoles.map((r) => r.role_id.toString()).includes(x),
-      );
+          const removedRoles = userRoles.filter(
+            (x) => !body.roles.includes(x.role_id.toString()),
+          );
+          const newRoles = body.roles.filter(
+            (x) => !userRoles.map((r) => r.role_id.toString()).includes(x),
+          );
 
-      if (removedRoles.length > 0)
-        await UserRoles.deleteMany({
-          _id: { $in: removedRoles.map((x) => x._id) },
-        });
+          if (removedRoles.length > 0)
+            await UserRoles.deleteMany(
+              { _id: { $in: removedRoles.map((x) => x._id) } },
+              { session },
+            );
 
-      if (newRoles.length > 0)
-        await UserRoles.insertMany(
-          newRoles.map((roleId) => ({ role_id: roleId, user_id: body._id })),
+          if (newRoles.length > 0)
+            await UserRoles.insertMany(
+              newRoles.map((roleId) => ({
+                role_id: roleId,
+                user_id: body._id,
+              })),
+              { session },
+            );
+        }
+
+        await Users.updateOne(
+          { _id: body._id },
+          { $set: updates },
+          { session },
         );
+      });
+    } finally {
+      session.endSession();
     }
-
-    await Users.updateOne({ _id: body._id }, { $set: updates });
     res.json(Response.successResponse({ success: true }));
   }),
 );

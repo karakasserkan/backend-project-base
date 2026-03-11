@@ -11,6 +11,7 @@ const config = require("../config");
 const i18n = new (require("../lib/i18n"))(config.DEFAULT_LANG);
 const UserRoles = require("../db/models/UserRoles");
 const asyncHandler = require("../lib/asyncHandler");
+const paginate = require("../lib/paginate");
 
 //SWAGGER
 /**
@@ -145,7 +146,23 @@ router.get(
   "/",
   auth.checkRoles("role_view"),
   asyncHandler(async (req, res) => {
-    const roles = await Roles.find({}).lean();
+    const { page, limit, is_active } = req.query;
+    const query = {};
+    if (typeof is_active !== "undefined")
+      query.is_active = is_active === "true";
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(500, Math.max(1, parseInt(limit) || 20));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [roles, total] = await Promise.all([
+      Roles.find(query)
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      Roles.countDocuments(query),
+    ]);
 
     const rolesWithPermissions = await Promise.all(
       roles.map(async (role) => {
@@ -154,7 +171,19 @@ router.get(
       }),
     );
 
-    res.json(Response.successResponse(rolesWithPermissions));
+    res.json(
+      Response.successResponse({
+        data: rolesWithPermissions,
+        pagination: {
+          total,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(total / limitNum),
+          hasNext: pageNum < Math.ceil(total / limitNum),
+          hasPrev: pageNum > 1,
+        },
+      }),
+    );
   }),
 );
 
