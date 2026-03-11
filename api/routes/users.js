@@ -17,6 +17,7 @@ const rolePrivConfig = require("../config/role_privileges");
 const { rateLimit } = require("express-rate-limit");
 const { MongoDBStore } = require("@iroomit/rate-limit-mongodb");
 const asyncHandler = require("../lib/asyncHandler");
+const mongoose = require("mongoose");
 
 // Rate limiter — sadece production'da aktif
 const limiter =
@@ -79,29 +80,49 @@ router.post(
       null,
     );
 
-    const createdUser = await Users.create({
-      email: body.email,
-      password: hashedPassword,
-      is_active: true,
-      first_name: body.first_name,
-      last_name: body.last_name,
-      phone_number: body.phone_number,
-    });
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const [createdUser] = await Users.create(
+          [
+            {
+              email: body.email,
+              password: hashedPassword,
+              is_active: true,
+              first_name: body.first_name,
+              last_name: body.last_name,
+              phone_number: body.phone_number,
+            },
+          ],
+          { session },
+        );
 
-    const role = await Roles.create({
-      role_name: Enum.SUPER_ADMIN,
-      is_active: true,
-      created_by: createdUser._id,
-    });
+        const [role] = await Roles.create(
+          [
+            {
+              role_name: Enum.SUPER_ADMIN,
+              is_active: true,
+              created_by: createdUser._id,
+            },
+          ],
+          { session },
+        );
 
-    await UserRoles.create({ role_id: role._id, user_id: createdUser._id });
+        await UserRoles.create(
+          [{ role_id: role._id, user_id: createdUser._id }],
+          { session },
+        );
 
-    const privilegeDocs = rolePrivConfig.privileges.map((p) => ({
-      role_id: role._id,
-      permission: p.key,
-    }));
+        const privilegeDocs = rolePrivConfig.privileges.map((p) => ({
+          role_id: role._id,
+          permission: p.key,
+        }));
 
-    await RolePrivileges.insertMany(privilegeDocs);
+        await RolePrivileges.insertMany(privilegeDocs, { session });
+      });
+    } finally {
+      session.endSession();
+    }
 
     res
       .status(Enum.HTTP_CODES.CREATED)
@@ -247,18 +268,31 @@ router.post(
       null,
     );
 
-    const user = await Users.create({
-      email: body.email,
-      password,
-      is_active: true,
-      first_name: body.first_name,
-      last_name: body.last_name,
-      phone_number: body.phone_number,
-    });
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const [user] = await Users.create(
+          [
+            {
+              email: body.email,
+              password,
+              is_active: true,
+              first_name: body.first_name,
+              last_name: body.last_name,
+              phone_number: body.phone_number,
+            },
+          ],
+          { session },
+        );
 
-    await UserRoles.insertMany(
-      roles.map((role) => ({ role_id: role._id, user_id: user._id })),
-    );
+        await UserRoles.insertMany(
+          roles.map((role) => ({ role_id: role._id, user_id: user._id })),
+          { session },
+        );
+      });
+    } finally {
+      session.endSession();
+    }
 
     res
       .status(Enum.HTTP_CODES.CREATED)
@@ -353,8 +387,15 @@ router.delete(
         "You cannot delete your own account",
       );
 
-    await Users.deleteOne({ _id: body._id });
-    await UserRoles.deleteMany({ user_id: body._id });
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        await Users.deleteOne({ _id: body._id }, { session });
+        await UserRoles.deleteMany({ user_id: body._id }, { session });
+      });
+    } finally {
+      session.endSession();
+    }
 
     res.json(Response.successResponse({ success: true }));
   }),
