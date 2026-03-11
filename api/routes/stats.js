@@ -7,7 +7,88 @@ const Users = require("../db/models/Users");
 const auth = require("../lib/auth")();
 const asyncHandler = require("../lib/asyncHandler");
 
-router.use(auth.authenticate()); // FIX: router.all("*") yerine router.use()
+//SWAGGER
+/**
+ * @swagger
+ * tags:
+ *   name: Stats
+ *   description: İstatistik ve raporlama
+ */
+
+/**
+ * @swagger
+ * /stats/auditlogs:
+ *   get:
+ *     summary: Kim hangi işlemi kaç kez yaptı
+ *     tags: [Stats]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               location:
+ *                 type: string
+ *                 example: Categories
+ *     responses:
+ *       200:
+ *         description: İstatistik listesi
+ *       401:
+ *         description: Yetkisiz
+ */
+
+/**
+ * @swagger
+ * /stats/categories/unique:
+ *   get:
+ *     summary: Kategorilerdeki tekil veri sayısı
+ *     tags: [Stats]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               is_active:
+ *                 type: boolean
+ *                 example: true
+ *     responses:
+ *       200:
+ *         description: Tekil kategori listesi ve sayısı
+ *       401:
+ *         description: Yetkisiz
+ */
+
+/**
+ * @swagger
+ * /stats/users/count:
+ *   get:
+ *     summary: Sistemdeki kullanıcı sayısı
+ *     tags: [Stats]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               is_active:
+ *                 type: boolean
+ *                 example: true
+ *     responses:
+ *       200:
+ *         description: Kullanıcı sayısı
+ *       401:
+ *         description: Yetkisiz
+ */
+
+// ─── PROTECTED ENDPOINTS
+router.use(auth.authenticate());
 
 // 1. Audit logs — kim hangi işlemi kaç kez yaptı
 router.get(

@@ -6,8 +6,71 @@ const moment = require("moment");
 const auth = require("../lib/auth")();
 const asyncHandler = require("../lib/asyncHandler");
 
+//SWAGGER
+/**
+ * @swagger
+ * tags:
+ *   name: AuditLogs
+ *   description: Sistem log kayıtları
+ *
+ * components:
+ *   schemas:
+ *     AuditLog:
+ *       type: object
+ *       properties:
+ *         _id:
+ *           type: string
+ *         level:
+ *           type: string
+ *           enum: [info, warn, error, debug, verbose, http, silly]
+ *         email:
+ *           type: string
+ *         location:
+ *           type: string
+ *         proc_type:
+ *           type: string
+ *         log:
+ *           type: object
+ *         created_at:
+ *           type: string
+ */
+
+/**
+ * @swagger
+ * /auditlogs:
+ *   post:
+ *     summary: Log kayıtlarını filtrele ve listele
+ *     tags: [AuditLogs]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               begin_date:
+ *                 type: string
+ *                 example: "2026-03-01"
+ *               end_date:
+ *                 type: string
+ *                 example: "2026-03-11"
+ *               skip:
+ *                 type: number
+ *                 example: 0
+ *               limit:
+ *                 type: number
+ *                 example: 100
+ *     responses:
+ *       200:
+ *         description: Log listesi
+ *       401:
+ *         description: Yetkisiz
+ */
+
 router.use(auth.authenticate());
 
+// ─── PROTECTED ENDPOINTS
 router.post(
   "/",
   auth.checkRoles("auditlogs_view"),

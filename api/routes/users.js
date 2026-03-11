@@ -38,6 +38,228 @@ const limiter =
 
 // ─── PUBLIC ENDPOINTS ────────────────────────────────────────────────────────
 
+/**
+ * @swagger
+ * tags:
+ *   name: Users
+ *   description: Kullanıcı işlemleri
+ *
+ * components:
+ *   schemas:
+ *     User:
+ *       type: object
+ *       properties:
+ *         _id:
+ *           type: string
+ *         email:
+ *           type: string
+ *         first_name:
+ *           type: string
+ *         last_name:
+ *           type: string
+ *         phone_number:
+ *           type: string
+ *         is_active:
+ *           type: boolean
+ */
+
+/**
+ * @swagger
+ * /users/register:
+ *   post:
+ *     summary: İlk admin kullanıcıyı oluşturur
+ *     tags: [Users]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: admin@example.com
+ *               password:
+ *                 type: string
+ *                 example: "12345678"
+ *               first_name:
+ *                 type: string
+ *                 example: Admin
+ *               last_name:
+ *                 type: string
+ *                 example: User
+ *               phone_number:
+ *                 type: string
+ *                 example: "05001234567"
+ *     responses:
+ *       201:
+ *         description: Kullanıcı oluşturuldu
+ *       400:
+ *         description: Validasyon hatası
+ *       403:
+ *         description: Kayıt kapalı
+ */
+
+/**
+ * @swagger
+ * /users/auth:
+ *   post:
+ *     summary: Giriş yap, JWT token al
+ *     tags: [Users]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: admin@example.com
+ *               password:
+ *                 type: string
+ *                 example: "12345678"
+ *     responses:
+ *       200:
+ *         description: Token döner
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Hatalı email veya şifre
+ */
+
+/**
+ * @swagger
+ * /users:
+ *   get:
+ *     summary: Tüm kullanıcıları listele
+ *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Kullanıcı listesi
+ *       401:
+ *         description: Yetkisiz
+ */
+
+/**
+ * @swagger
+ * /users/add:
+ *   post:
+ *     summary: Yeni kullanıcı ekle
+ *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password, roles]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: user@example.com
+ *               password:
+ *                 type: string
+ *                 example: "12345678"
+ *               first_name:
+ *                 type: string
+ *               last_name:
+ *                 type: string
+ *               phone_number:
+ *                 type: string
+ *               roles:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["64a1b2c3d4e5f6a7b8c9d0e1"]
+ *     responses:
+ *       201:
+ *         description: Kullanıcı eklendi
+ *       400:
+ *         description: Validasyon hatası
+ *       409:
+ *         description: Email zaten mevcut
+ */
+
+/**
+ * @swagger
+ * /users/update:
+ *   post:
+ *     summary: Kullanıcı güncelle
+ *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [_id]
+ *             properties:
+ *               _id:
+ *                 type: string
+ *               first_name:
+ *                 type: string
+ *               last_name:
+ *                 type: string
+ *               phone_number:
+ *                 type: string
+ *               is_active:
+ *                 type: boolean
+ *               password:
+ *                 type: string
+ *               roles:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         description: Güncellendi
+ *       400:
+ *         description: Validasyon hatası
+ */
+
+/**
+ * @swagger
+ * /users/delete:
+ *   delete:
+ *     summary: Kullanıcı sil
+ *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [_id]
+ *             properties:
+ *               _id:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Silindi
+ *       400:
+ *         description: Validasyon hatası
+ */
+
 // REGISTER
 router.post(
   "/register",

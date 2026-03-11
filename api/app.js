@@ -12,6 +12,8 @@ const mongoSanitize = require("express-mongo-sanitize");
 const helmetMiddleware = require("./config/helmet");
 const corsMiddleware = require("./config/cors");
 const errorHandler = require("./lib/errorHandler");
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./config/swagger");
 
 var app = express();
 
@@ -35,6 +37,8 @@ app.use((req, res, next) => {
   });
   next();
 });
+// SWAGGER
+app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // ─── ROUTES ──────────────────────────────────────────────────────────────────
 app.use("/api", require("./routes/index"));

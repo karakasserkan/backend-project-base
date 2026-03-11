@@ -2,6 +2,44 @@ const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
 
+//SWAGGER
+/**
+ * @swagger
+ * tags:
+ *   name: Health
+ *   description: Sistem sağlık kontrolü
+ */
+
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Sistem ve veritabanı durumunu kontrol et
+ *     tags: [Health]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: Sistem sağlıklı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: ok
+ *                 timestamp:
+ *                   type: string
+ *                 uptime:
+ *                   type: string
+ *                 environment:
+ *                   type: string
+ *                 services:
+ *                   type: object
+ *       503:
+ *         description: Sistem sorunlu
+ */
+
 router.get("/", async (req, res) => {
   const dbStatus = mongoose.connection.readyState;
 

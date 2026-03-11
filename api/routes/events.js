@@ -9,6 +9,35 @@ if (!emitter.getEmitter("notifications")) {
   emitter.addEmitter("notifications");
 }
 
+//SWAGGER
+/**
+ * @swagger
+ * tags:
+ *   name: Events
+ *   description: Server-Sent Events — gerçek zamanlı bildirimler
+ */
+
+/**
+ * @swagger
+ * /events:
+ *   get:
+ *     summary: SSE bağlantısı kur, gerçek zamanlı bildirimleri dinle
+ *     tags: [Events]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: SSE stream başladı
+ *         content:
+ *           text/event-stream:
+ *             schema:
+ *               type: string
+ *               example: "data:{\"message\":\"kategori 1 is added\"}\n\n"
+ *       401:
+ *         description: Yetkisiz
+ */
+
+// ─── PROTECTED ENDPOINTS
 //Auth koruması eklendi
 router.get("/", auth.authenticate(), (req, res) => {
   res.writeHead(HTTP_CODES.OK, {

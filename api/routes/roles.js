@@ -12,6 +12,132 @@ const i18n = new (require("../lib/i18n"))(config.DEFAULT_LANG);
 const UserRoles = require("../db/models/UserRoles");
 const asyncHandler = require("../lib/asyncHandler");
 
+//SWAGGER
+/**
+ * @swagger
+ * tags:
+ *   name: Roles
+ *   description: Rol işlemleri
+ *
+ * components:
+ *   schemas:
+ *     Role:
+ *       type: object
+ *       properties:
+ *         _id:
+ *           type: string
+ *         role_name:
+ *           type: string
+ *         is_active:
+ *           type: boolean
+ *         created_by:
+ *           type: string
+ */
+
+/**
+ * @swagger
+ * /roles:
+ *   get:
+ *     summary: Tüm rolleri listele
+ *     tags: [Roles]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Rol listesi
+ *       401:
+ *         description: Yetkisiz
+ */
+
+/**
+ * @swagger
+ * /roles/add:
+ *   post:
+ *     summary: Yeni rol ekle
+ *     tags: [Roles]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [role_name]
+ *             properties:
+ *               role_name:
+ *                 type: string
+ *                 example: EDITOR
+ *               is_active:
+ *                 type: boolean
+ *                 example: true
+ *     responses:
+ *       201:
+ *         description: Rol eklendi
+ *       400:
+ *         description: Validasyon hatası
+ */
+
+/**
+ * @swagger
+ * /roles/update:
+ *   post:
+ *     summary: Rol güncelle
+ *     tags: [Roles]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [_id]
+ *             properties:
+ *               _id:
+ *                 type: string
+ *               role_name:
+ *                 type: string
+ *               is_active:
+ *                 type: boolean
+ *               privileges:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["user_view", "category_add"]
+ *     responses:
+ *       200:
+ *         description: Güncellendi
+ *       400:
+ *         description: Validasyon hatası
+ */
+
+/**
+ * @swagger
+ * /roles/delete:
+ *   delete:
+ *     summary: Rol sil
+ *     tags: [Roles]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [_id]
+ *             properties:
+ *               _id:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Silindi
+ *       400:
+ *         description: Validasyon hatası
+ */
+
+// ─── PROTECTED ENDPOINTS
 router.use(auth.authenticate());
 
 // LIST

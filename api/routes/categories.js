@@ -30,6 +30,165 @@ const multerStorage = multer.diskStorage({
 });
 
 const upload = multer({ storage: multerStorage }).single("pb_file");
+//SWAGGER
+/**
+ * @swagger
+ * tags:
+ *   name: Categories
+ *   description: Kategori işlemleri
+ *
+ * components:
+ *   schemas:
+ *     Category:
+ *       type: object
+ *       properties:
+ *         _id:
+ *           type: string
+ *         name:
+ *           type: string
+ *         is_active:
+ *           type: boolean
+ *         created_by:
+ *           type: string
+ */
+
+/**
+ * @swagger
+ * /categories:
+ *   get:
+ *     summary: Tüm kategorileri listele
+ *     tags: [Categories]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Kategori listesi
+ *       401:
+ *         description: Yetkisiz
+ */
+
+/**
+ * @swagger
+ * /categories/add:
+ *   post:
+ *     summary: Yeni kategori ekle
+ *     tags: [Categories]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name]
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: Elektronik
+ *     responses:
+ *       200:
+ *         description: Kategori eklendi
+ *       400:
+ *         description: Validasyon hatası
+ */
+
+/**
+ * @swagger
+ * /categories/update:
+ *   post:
+ *     summary: Kategori güncelle
+ *     tags: [Categories]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [_id]
+ *             properties:
+ *               _id:
+ *                 type: string
+ *               name:
+ *                 type: string
+ *               is_active:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Güncellendi
+ *       400:
+ *         description: Validasyon hatası
+ */
+
+/**
+ * @swagger
+ * /categories/delete:
+ *   delete:
+ *     summary: Kategori sil
+ *     tags: [Categories]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [_id]
+ *             properties:
+ *               _id:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Silindi
+ *       400:
+ *         description: Validasyon hatası
+ */
+
+/**
+ * @swagger
+ * /categories/export:
+ *   get:
+ *     summary: Kategorileri Excel olarak indir
+ *     tags: [Categories]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Excel dosyası
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+ *             schema:
+ *               type: string
+ *               format: binary
+ */
+
+/**
+ * @swagger
+ * /categories/import:
+ *   post:
+ *     summary: Excel'den kategori içe aktar
+ *     tags: [Categories]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               pb_file:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       201:
+ *         description: İçe aktarıldı
+ *       400:
+ *         description: Geçersiz dosya
+ */
 
 router.use(auth.authenticate()); // router.all("*") yerine router.use()
 
