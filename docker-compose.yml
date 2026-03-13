@@ -1,0 +1,106 @@
+services:
+  app:
+    build: .
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      CONNECTION_STRING: mongodb://admin:password@mongo1:27017,mongo2:27017,mongo3:27017/project-base?replicaSet=rs0&authSource=admin&retryWrites=true
+      LOG_LEVEL: info
+      FILE_UPLOAD_PATH: /data/uploads
+      JWT_SECRET: ${JWT_SECRET}
+      DEFAULT_LANG: ${DEFAULT_LANG}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      TOKEN_EXPIRE_TIME: ${TOKEN_EXPIRE_TIME}
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      mongo1:
+        condition: service_healthy
+      mongo2:
+        condition: service_healthy
+      mongo3:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+
+  mongo1:
+    image: mongo:7
+    restart: always
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - mongo1_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  mongo2:
+    image: mongo:7
+    restart: always
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - mongo2_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  mongo3:
+    image: mongo:7
+    restart: always
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - mongo3_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  mongo-init:
+    image: mongo:7
+    restart: "no"
+    depends_on:
+      mongo1:
+        condition: service_healthy
+      mongo2:
+        condition: service_healthy
+      mongo3:
+        condition: service_healthy
+    entrypoint: >
+      bash -c "
+      mongosh --host mongo1:27017 -u admin -p password --authenticationDatabase admin --eval '
+        rs.initiate({
+          _id: \"rs0\",
+          members: [
+            { _id: 0, host: \"mongo1:27017\" },
+            { _id: 1, host: \"mongo2:27017\" },
+            { _id: 2, host: \"mongo3:27017\" }
+          ]
+        })
+      '
+      "
+
+volumes:
+  uploads:
+  mongo1_data:
+  mongo2_data:
+  mongo3_data:
