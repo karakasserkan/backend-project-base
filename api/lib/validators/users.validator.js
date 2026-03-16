@@ -38,4 +38,21 @@ module.exports = {
   delete: Joi.object({
     _id: Joi.string().required(),
   }),
+
+  forgotPassword: Joi.object({
+    email: Joi.string().email().required(),
+  }),
+
+  resetPassword: Joi.object({
+    token: Joi.string().required(),
+    password: Joi.string().min(Enum.PASS_LENGTH).required(),
+  }),
+
+  verifyEmail: Joi.object({
+    token: Joi.string().required(),
+  }),
+
+  resendVerification: Joi.object({
+    email: Joi.string().email().required(),
+  }),
 };

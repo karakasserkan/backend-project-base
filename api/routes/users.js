@@ -21,6 +21,8 @@ const mongoose = require("mongoose");
 const paginate = require("../lib/paginate");
 const validate = require("../lib/validators/validate");
 const userValidators = require("../lib/validators/users.validator");
+const crypto = require("crypto");
+const EmailService = require("../lib/email");
 
 // Rate limiter — sadece production'da aktif
 const limiter =
@@ -329,6 +331,20 @@ router.post(
       session.endSession();
     }
 
+    // Kayıt sonrası doğrulama maili gönder
+    const verifyToken = crypto.randomBytes(32).toString("hex");
+    const verifyTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await Users.updateOne(
+      { email: body.email },
+      {
+        email_verify_token: verifyToken,
+        email_verify_token_expires: verifyTokenExpires,
+      },
+    );
+
+    await EmailService.sendEmailVerification(body.email, verifyToken);
+
     res
       .status(Enum.HTTP_CODES.CREATED)
       .json(
@@ -376,6 +392,150 @@ router.post(
           first_name: user.first_name,
           last_name: user.last_name,
         },
+      }),
+    );
+  }),
+);
+
+// FORGOT PASSWORD
+router.post(
+  "/forgot-password",
+  validate(userValidators.forgotPassword),
+  asyncHandler(async (req, res) => {
+    const { email } = req.body;
+    const lang = req.headers["accept-language"] || config.DEFAULT_LANG;
+
+    const user = await Users.findOne({ email });
+    console.log("User found:", user?.email, user?._id);
+
+    // Güvenlik: kullanıcı bulunsun ya da bulunmasın aynı response dön
+    if (user) {
+      const resetToken = crypto.randomBytes(32).toString("hex");
+      const resetTokenExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 saat
+
+      await Users.updateOne(
+        { _id: user._id },
+        {
+          password_reset_token: resetToken,
+          password_reset_token_expires: resetTokenExpires,
+        },
+      );
+
+      await EmailService.sendPasswordReset(email, resetToken);
+    }
+
+    res.json(
+      Response.successResponse({
+        message: "If this email exists, a reset link has been sent.",
+      }),
+    );
+  }),
+);
+
+// RESET PASSWORD
+router.post(
+  "/reset-password",
+  validate(userValidators.resetPassword),
+  asyncHandler(async (req, res) => {
+    const { token, password } = req.body;
+    const lang = req.headers["accept-language"] || config.DEFAULT_LANG;
+
+    const user = await Users.findOne({
+      password_reset_token: token,
+      password_reset_token_expires: { $gt: new Date() },
+    });
+
+    if (!user)
+      throw new CustomError(
+        Enum.HTTP_CODES.BAD_REQUEST,
+        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", lang),
+        "Invalid or expired reset token",
+      );
+
+    const hashedPassword = bcrypt.hashSync(
+      password,
+      bcrypt.genSaltSync(10),
+      null,
+    );
+
+    await Users.updateOne(
+      { _id: user._id },
+      {
+        password: hashedPassword,
+        password_reset_token: null,
+        password_reset_token_expires: null,
+      },
+    );
+
+    res.json(
+      Response.successResponse({ message: "Password reset successful" }),
+    );
+  }),
+);
+
+// VERIFY EMAIL
+router.post(
+  "/verify-email",
+  validate(userValidators.verifyEmail),
+  asyncHandler(async (req, res) => {
+    const { token } = req.body;
+    const lang = req.headers["accept-language"] || config.DEFAULT_LANG;
+
+    const user = await Users.findOne({
+      email_verify_token: token,
+      email_verify_token_expires: { $gt: new Date() },
+    });
+
+    if (!user)
+      throw new CustomError(
+        Enum.HTTP_CODES.BAD_REQUEST,
+        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", lang),
+        "Invalid or expired verification token",
+      );
+
+    await Users.updateOne(
+      { _id: user._id },
+      {
+        email_verified: true,
+        email_verify_token: null,
+        email_verify_token_expires: null,
+      },
+    );
+
+    res.json(
+      Response.successResponse({ message: "Email verified successfully" }),
+    );
+  }),
+);
+
+// RESEND VERIFICATION
+router.post(
+  "/resend-verification",
+  validate(userValidators.resendVerification),
+  asyncHandler(async (req, res) => {
+    const { email } = req.body;
+
+    const user = await Users.findOne({ email });
+
+    if (user && !user.email_verified) {
+      const verifyToken = crypto.randomBytes(32).toString("hex");
+      const verifyTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 saat
+
+      await Users.updateOne(
+        { _id: user._id },
+        {
+          email_verify_token: verifyToken,
+          email_verify_token_expires: verifyTokenExpires,
+        },
+      );
+
+      await EmailService.sendEmailVerification(email, verifyToken);
+    }
+
+    res.json(
+      Response.successResponse({
+        message:
+          "If this email exists and is unverified, a verification email has been sent.",
       }),
     );
   }),
