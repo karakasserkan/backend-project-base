@@ -12,6 +12,8 @@ const i18n = new (require("../lib/i18n"))(config.DEFAULT_LANG);
 const UserRoles = require("../db/models/UserRoles");
 const asyncHandler = require("../lib/asyncHandler");
 const paginate = require("../lib/paginate");
+const validate = require("../lib/validators/validate");
+const roleValidators = require("../lib/validators/roles.validator");
 
 //SWAGGER
 /**
@@ -191,32 +193,11 @@ router.get(
 router.post(
   "/add",
   auth.checkRoles("role_add"),
+  validate(roleValidators.add),
   asyncHandler(async (req, res) => {
     const body = req.body;
 
-    if (!body.role_name)
-      throw new CustomError(
-        Enum.HTTP_CODES.BAD_REQUEST,
-        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
-        i18n.translate("COMMON.FIELD_MUST_BE_FILLED", req.user.language, [
-          "role_name",
-        ]),
-      );
-
-    if (
-      !body.permissions ||
-      !Array.isArray(body.permissions) ||
-      body.permissions.length === 0
-    )
-      throw new CustomError(
-        Enum.HTTP_CODES.BAD_REQUEST,
-        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
-        i18n.translate("COMMON.FIELD_MUST_BE_TYPE", req.user.language, [
-          "permissions",
-          "Array",
-        ]),
-      );
-
+    // İş mantığı — geçerli permission kontrolü
     const validKeys = role_privileges.privileges.map((p) => p.key);
     const invalidPerms = body.permissions.filter((p) => !validKeys.includes(p));
     if (invalidPerms.length > 0)
@@ -228,7 +209,7 @@ router.post(
 
     const role = await Roles.create({
       role_name: body.role_name,
-      is_active: true,
+      is_active: body.is_active ?? true,
       created_by: req.user?.id,
     });
 
@@ -248,18 +229,11 @@ router.post(
 router.post(
   "/update",
   auth.checkRoles("role_update"),
+  validate(roleValidators.update),
   asyncHandler(async (req, res) => {
     const body = req.body;
 
-    if (!body._id)
-      throw new CustomError(
-        Enum.HTTP_CODES.BAD_REQUEST,
-        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
-        i18n.translate("COMMON.FIELD_MUST_BE_FILLED", req.user.language, [
-          "_id",
-        ]),
-      );
-
+    // İş mantığı — kendi rolünü güncelleyemez
     const userRole = await UserRoles.findOne({
       user_id: req.user.id,
       role_id: body._id,
@@ -295,6 +269,7 @@ router.post(
         });
 
       if (toAdd.length > 0) {
+        // İş mantığı — sahip olmadığı yetkiyi veremez
         const myRoles = await UserRoles.find({ user_id: req.user.id });
         const myPrivileges = await RolePrivileges.find({
           role_id: { $in: myRoles.map((r) => r.role_id) },
@@ -328,17 +303,9 @@ router.post(
 router.delete(
   "/delete",
   auth.checkRoles("role_delete"),
+  validate(roleValidators.delete),
   asyncHandler(async (req, res) => {
     const body = req.body;
-
-    if (!body._id)
-      throw new CustomError(
-        Enum.HTTP_CODES.BAD_REQUEST,
-        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
-        i18n.translate("COMMON.FIELD_MUST_BE_FILLED", req.user.language, [
-          "_id",
-        ]),
-      );
 
     await Roles.deleteOne({ _id: body._id });
     res.json(Response.successResponse({ success: true }));

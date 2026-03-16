@@ -19,6 +19,8 @@ const { MongoDBStore } = require("@iroomit/rate-limit-mongodb");
 const asyncHandler = require("../lib/asyncHandler");
 const mongoose = require("mongoose");
 const paginate = require("../lib/paginate");
+const validate = require("../lib/validators/validate");
+const userValidators = require("../lib/validators/users.validator");
 
 // Rate limiter — sadece production'da aktif
 const limiter =
@@ -264,6 +266,7 @@ const limiter =
 // REGISTER
 router.post(
   "/register",
+  validate(userValidators.register),
   asyncHandler(async (req, res) => {
     const body = req.body;
     const lang = req.headers["accept-language"] || config.DEFAULT_LANG;
@@ -274,27 +277,6 @@ router.post(
         Enum.HTTP_CODES.FORBIDDEN,
         i18n.translate("COMMON.VALIDATION_ERROR_TITLE", lang),
         i18n.translate("AUTH.REGISTER_DISABLED", lang),
-      );
-
-    if (!body.email)
-      throw new CustomError(
-        Enum.HTTP_CODES.BAD_REQUEST,
-        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", lang),
-        i18n.translate("COMMON.FIELD_MUST_BE_FILLED", lang, ["email"]),
-      );
-
-    if (!validator.isEmail(body.email))
-      throw new CustomError(
-        Enum.HTTP_CODES.BAD_REQUEST,
-        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", lang),
-        i18n.translate("COMMON.INVALID_EMAIL", lang),
-      );
-
-    if (!body.password || body.password.length < Enum.PASS_LENGTH)
-      throw new CustomError(
-        Enum.HTTP_CODES.BAD_REQUEST,
-        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", lang),
-        i18n.translate("COMMON.PASSWORD_LENGTH", lang, [Enum.PASS_LENGTH]),
       );
 
     const hashedPassword = bcrypt.hashSync(
@@ -359,12 +341,10 @@ router.post(
 router.post(
   "/auth",
   limiter,
+  validate(userValidators.auth),
   asyncHandler(async (req, res) => {
     const { email, password } = req.body;
     const lang = req.headers["accept-language"] || config.DEFAULT_LANG;
-
-    Users.validateFieldsBeforeAuth(email, password, lang);
-
     const user = await Users.findOne({ email });
 
     if (!user)
@@ -456,44 +436,9 @@ router.get(
 router.post(
   "/add",
   auth.checkRoles("user_add"),
+  validate(userValidators.add),
   asyncHandler(async (req, res) => {
     const body = req.body;
-
-    if (!body.email)
-      throw new CustomError(
-        Enum.HTTP_CODES.BAD_REQUEST,
-        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
-        i18n.translate("COMMON.FIELD_MUST_BE_FILLED", req.user.language, [
-          "email",
-        ]),
-      );
-
-    if (!validator.isEmail(body.email))
-      throw new CustomError(
-        Enum.HTTP_CODES.BAD_REQUEST,
-        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
-        i18n.translate("USERS.EMAIL_FORMAT_ERROR", req.user.language),
-      );
-
-    if (!body.password || body.password.length < Enum.PASS_LENGTH)
-      throw new CustomError(
-        Enum.HTTP_CODES.BAD_REQUEST,
-        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
-        i18n.translate("USERS.PASSWORD_LENGTH_ERROR", req.user.language, [
-          Enum.PASS_LENGTH,
-        ]),
-      );
-
-    if (!body.roles || !Array.isArray(body.roles) || body.roles.length === 0)
-      throw new CustomError(
-        Enum.HTTP_CODES.BAD_REQUEST,
-        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
-        i18n.translate("COMMON.FIELD_MUST_BE_TYPE", req.user.language, [
-          "roles",
-          "Array",
-        ]),
-      );
-
     const roles = await Roles.find({ _id: { $in: body.roles } });
     if (roles.length === 0)
       throw new CustomError(
@@ -557,19 +502,10 @@ router.post(
 router.post(
   "/update",
   auth.checkRoles("user_update"),
+  validate(userValidators.update),
   asyncHandler(async (req, res) => {
     const body = req.body;
     const updates = {};
-
-    if (!body._id)
-      throw new CustomError(
-        Enum.HTTP_CODES.BAD_REQUEST,
-        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
-        i18n.translate("COMMON.FIELD_MUST_BE_FILLED", req.user.language, [
-          "_id",
-        ]),
-      );
-
     if (body._id == req.user.id)
       throw new CustomError(
         Enum.HTTP_CODES.FORBIDDEN,
@@ -577,7 +513,7 @@ router.post(
         i18n.translate("COMMON.NEED_PERMISSIONS", req.user.language),
       );
 
-    if (body.password && body.password.length >= Enum.PASS_LENGTH)
+    if (body.password)
       updates.password = bcrypt.hashSync(
         body.password,
         bcrypt.genSaltSync(10),
@@ -637,17 +573,9 @@ router.post(
 router.delete(
   "/delete",
   auth.checkRoles("user_delete"),
+  validate(userValidators.delete),
   asyncHandler(async (req, res) => {
     const body = req.body;
-
-    if (!body._id)
-      throw new CustomError(
-        Enum.HTTP_CODES.BAD_REQUEST,
-        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
-        i18n.translate("COMMON.FIELD_MUST_BE_FILLED", req.user.language, [
-          "_id",
-        ]),
-      );
 
     if (body._id.toString() === req.user.id.toString())
       throw new CustomError(

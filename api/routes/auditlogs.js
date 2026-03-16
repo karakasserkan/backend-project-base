@@ -5,7 +5,8 @@ const AuditLogs = require("../db/models/AuditLogs");
 const moment = require("moment");
 const auth = require("../lib/auth")();
 const asyncHandler = require("../lib/asyncHandler");
-const paginate = require("../lib/paginate");
+const validate = require("../lib/validators/validate");
+const auditlogsValidators = require("../lib/validators/auditlogs.validator");
 
 //SWAGGER
 /**
@@ -56,12 +57,12 @@ const paginate = require("../lib/paginate");
  *               end_date:
  *                 type: string
  *                 example: "2026-03-11"
- *               skip:
+ *               page:
  *                 type: number
- *                 example: 0
+ *                 example: 1
  *               limit:
  *                 type: number
- *                 example: 100
+ *                 example: 20
  *     responses:
  *       200:
  *         description: Log listesi
@@ -71,10 +72,10 @@ const paginate = require("../lib/paginate");
 
 router.use(auth.authenticate());
 
-// ─── PROTECTED ENDPOINTS
 router.post(
   "/",
   auth.checkRoles("auditlogs_view"),
+  validate(auditlogsValidators.list),
   asyncHandler(async (req, res) => {
     const body = req.body;
     const query = {};
@@ -115,4 +116,5 @@ router.post(
     );
   }),
 );
+
 module.exports = router;

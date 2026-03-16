@@ -16,6 +16,8 @@ const path = require("path");
 const Import = new (require("../lib/Import"))();
 const asyncHandler = require("../lib/asyncHandler");
 const paginate = require("../lib/paginate");
+const validate = require("../lib/validators/validate");
+const categoryValidators = require("../lib/validators/categories.validator");
 
 // Multer storage config
 const multerStorage = multer.diskStorage({
@@ -31,6 +33,7 @@ const multerStorage = multer.diskStorage({
 });
 
 const upload = multer({ storage: multerStorage }).single("pb_file");
+
 //SWAGGER
 /**
  * @swagger
@@ -191,7 +194,7 @@ const upload = multer({ storage: multerStorage }).single("pb_file");
  *         description: Geçersiz dosya
  */
 
-router.use(auth.authenticate()); // router.all("*") yerine router.use()
+router.use(auth.authenticate());
 
 // LIST
 router.get(
@@ -212,21 +215,13 @@ router.get(
 router.post(
   "/add",
   auth.checkRoles("category_add"),
+  validate(categoryValidators.add),
   asyncHandler(async (req, res) => {
     const body = req.body;
 
-    if (!body.name)
-      throw new CustomError(
-        Enum.HTTP_CODES.BAD_REQUEST,
-        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
-        i18n.translate("COMMON.FIELD_MUST_BE_FILLED", req.user.language, [
-          "name",
-        ]),
-      );
-
     const category = new Categories({
       name: body.name,
-      is_active: true,
+      is_active: body.is_active ?? true,
       created_by: req.user?.id,
     });
 
@@ -246,17 +241,9 @@ router.post(
 router.post(
   "/update",
   auth.checkRoles("category_update"),
+  validate(categoryValidators.update),
   asyncHandler(async (req, res) => {
     const body = req.body;
-
-    if (!body._id)
-      throw new CustomError(
-        Enum.HTTP_CODES.BAD_REQUEST,
-        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
-        i18n.translate("COMMON.FIELD_MUST_BE_FILLED", req.user.language, [
-          "_id",
-        ]),
-      );
 
     const update = {};
     if (body.name) update.name = body.name;
@@ -277,17 +264,9 @@ router.post(
 router.delete(
   "/delete",
   auth.checkRoles("category_delete"),
+  validate(categoryValidators.delete),
   asyncHandler(async (req, res) => {
     const body = req.body;
-
-    if (!body._id)
-      throw new CustomError(
-        Enum.HTTP_CODES.BAD_REQUEST,
-        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language),
-        i18n.translate("COMMON.FIELD_MUST_BE_FILLED", req.user.language, [
-          "_id",
-        ]),
-      );
 
     await Categories.deleteOne({ _id: body._id });
 
@@ -383,7 +362,6 @@ router.post(
       const errorResponse = Response.errorResponse(err);
       res.status(errorResponse.code).json(errorResponse);
     } finally {
-      // Dosyayı her durumda temizle
       if (file && fs.existsSync(file.path)) {
         fs.unlinkSync(file.path);
       }

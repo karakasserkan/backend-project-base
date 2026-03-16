@@ -6,6 +6,8 @@ const Categories = require("../db/models/Categories");
 const Users = require("../db/models/Users");
 const auth = require("../lib/auth")();
 const asyncHandler = require("../lib/asyncHandler");
+const validate = require("../lib/validators/validate");
+const statsValidators = require("../lib/validators/stats.validator");
 
 //SWAGGER
 /**
@@ -87,13 +89,13 @@ const asyncHandler = require("../lib/asyncHandler");
  *         description: Yetkisiz
  */
 
-// ─── PROTECTED ENDPOINTS
 router.use(auth.authenticate());
 
 // 1. Audit logs — kim hangi işlemi kaç kez yaptı
 router.get(
   "/auditlogs",
   auth.checkRoles("auditlogs_view"),
+  validate(statsValidators.auditlogs),
   asyncHandler(async (req, res) => {
     const body = req.body;
     const filter = {};
@@ -118,6 +120,7 @@ router.get(
 router.get(
   "/categories/unique",
   auth.checkRoles("category_view"),
+  validate(statsValidators.categoriesUnique),
   asyncHandler(async (req, res) => {
     const body = req.body;
     const filter = {};
@@ -132,6 +135,7 @@ router.get(
 router.get(
   "/users/count",
   auth.checkRoles("user_view"),
+  validate(statsValidators.usersCount),
   asyncHandler(async (req, res) => {
     const body = req.body;
     const filter = {};
