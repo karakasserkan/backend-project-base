@@ -22,6 +22,9 @@ const envSchema = Joi.object({
   DEFAULT_LANG: Joi.string().valid("EN", "TR").default("EN"),
 
   ALLOWED_ORIGINS: Joi.string().default("http://localhost:3000"),
+  SENDGRID_API_KEY: Joi.string().required(),
+  SENDGRID_FROM_EMAIL: Joi.string().email().required(),
+  APP_URL: Joi.string().uri().required(),
 }).unknown(true); // bilinmeyen değişkenlere izin ver
 
 const { error, value } = envSchema.validate(process.env);

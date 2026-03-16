@@ -23,6 +23,11 @@ const schema = mongoose.Schema(
     last_name: String,
     phone_number: String,
     language: { type: String, default: DEFAULT_LANG },
+    email_verified: { type: Boolean, default: false },
+    email_verify_token: { type: String },
+    email_verify_token_expires: { type: Date },
+    password_reset_token: { type: String },
+    password_reset_token_expires: { type: Date },
   },
   {
     versionKey: false,
