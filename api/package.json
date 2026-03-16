@@ -3,7 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "node ./bin/www"
+    "start": "node ./bin/www",
+    "pm2:start": "pm2 start ecosystem.config.js --env production",
+    "pm2:stop": "pm2 stop backend-project-base",
+    "pm2:restart": "pm2 restart backend-project-base",
+    "pm2:logs": "pm2 logs backend-project-base"
   },
   "dependencies": {
     "@iroomit/rate-limit-mongodb": "^1.0.1",
