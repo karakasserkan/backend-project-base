@@ -9,17 +9,26 @@ const privs = require("../config/role_privileges");
 const Response = require("./Response");
 const { HTTP_CODES } = require("../config/Enum");
 const CustomError = require("./Error");
+const Cache = require("./cache");
 
 module.exports = function () {
   let strategy = new Strategy(
     {
       secretOrKey: config.JWT.SECRET,
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      passReqToCallback: true,
     },
-    async (payload, done) => {
+    async (req, payload, done) => {
+      // ← req parametresi eklendi
       try {
-        const userId = new mongoose.Types.ObjectId(payload.id);
+        // Token blacklist kontrolü
+        const token = ExtractJwt.fromAuthHeaderAsBearerToken()(req);
+        if (token) {
+          const isBlacklisted = await Cache.isTokenBlacklisted(token);
+          if (isBlacklisted) return done(null, false);
+        }
 
+        const userId = new mongoose.Types.ObjectId(payload.id);
         let user = await Users.findById(userId);
         if (!user) return done(new Error("User not found"), null);
 
@@ -30,7 +39,6 @@ module.exports = function () {
           role_id: { $in: roleIds },
         });
 
-        // Permission eşleştirme — trim() ile boşluk güvencesi
         let privileges = rolePrivileges
           .map((rp) => rp.permission?.trim())
           .filter(Boolean)

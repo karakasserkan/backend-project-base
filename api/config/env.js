@@ -25,6 +25,8 @@ const envSchema = Joi.object({
   SENDGRID_API_KEY: Joi.string().required(),
   SENDGRID_FROM_EMAIL: Joi.string().email().required(),
   APP_URL: Joi.string().uri().required(),
+  UPSTASH_REDIS_REST_URL: Joi.string().uri().required(),
+  UPSTASH_REDIS_REST_TOKEN: Joi.string().required(),
 }).unknown(true); // bilinmeyen değişkenlere izin ver
 
 const { error, value } = envSchema.validate(process.env);

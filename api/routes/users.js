@@ -23,6 +23,7 @@ const validate = require("../lib/validators/validate");
 const userValidators = require("../lib/validators/users.validator");
 const crypto = require("crypto");
 const EmailService = require("../lib/email");
+const Cache = require("../lib/cache");
 
 // Rate limiter — sadece production'da aktif
 const limiter =
@@ -40,6 +41,30 @@ const limiter =
         ipv6Subnet: 56,
       })
     : (req, res, next) => next();
+
+// LOGOUT
+router.post(
+  "/logout",
+  asyncHandler(async (req, res) => {
+    const token = req.headers["authorization"]?.split(" ")[1];
+    const lang = req.headers["accept-language"] || config.DEFAULT_LANG;
+
+    if (!token)
+      throw new CustomError(
+        Enum.HTTP_CODES.BAD_REQUEST,
+        i18n.translate("COMMON.VALIDATION_ERROR_TITLE", lang),
+        "Token is required",
+      );
+
+    // Token'ın kalan süresini hesapla
+    const decoded = jwt.decode(token, config.JWT.SECRET);
+    const ttl = decoded.exp - Math.floor(Date.now() / 1000);
+
+    if (ttl > 0) await Cache.blacklistToken(token, ttl);
+
+    res.json(Response.successResponse({ message: "Logged out successfully" }));
+  }),
+);
 
 // ─── PUBLIC ENDPOINTS ────────────────────────────────────────────────────────
 
@@ -287,49 +312,42 @@ router.post(
       null,
     );
 
-    const session = await mongoose.startSession();
-    try {
-      await session.withTransaction(async () => {
-        const [createdUser] = await Users.create(
-          [
-            {
-              email: body.email,
-              password: hashedPassword,
-              is_active: true,
-              first_name: body.first_name,
-              last_name: body.last_name,
-              phone_number: body.phone_number,
-            },
-          ],
-          { session },
-        );
+    // TODO: Docker + Replica Set kurulumundan sonra transaction'ı aç
+    // const session = await mongoose.startSession();
+    // try {
+    //   await session.withTransaction(async () => {
+    //     const [createdUser] = await Users.create([{...}], { session });
+    //     const [role] = await Roles.create([{...}], { session });
+    //     await UserRoles.create([{...}], { session });
+    //     await RolePrivileges.insertMany(privilegeDocs, { session });
+    //   });
+    // } finally {
+    //   session.endSession();
+    // }
 
-        const [role] = await Roles.create(
-          [
-            {
-              role_name: Enum.SUPER_ADMIN,
-              is_active: true,
-              created_by: createdUser._id,
-            },
-          ],
-          { session },
-        );
+    const createdUser = await Users.create({
+      email: body.email,
+      password: hashedPassword,
+      is_active: true,
+      first_name: body.first_name,
+      last_name: body.last_name,
+      phone_number: body.phone_number,
+    });
 
-        await UserRoles.create(
-          [{ role_id: role._id, user_id: createdUser._id }],
-          { session },
-        );
+    const role = await Roles.create({
+      role_name: Enum.SUPER_ADMIN,
+      is_active: true,
+      created_by: createdUser._id,
+    });
 
-        const privilegeDocs = rolePrivConfig.privileges.map((p) => ({
-          role_id: role._id,
-          permission: p.key,
-        }));
+    await UserRoles.create({ role_id: role._id, user_id: createdUser._id });
 
-        await RolePrivileges.insertMany(privilegeDocs, { session });
-      });
-    } finally {
-      session.endSession();
-    }
+    const privilegeDocs = rolePrivConfig.privileges.map((p) => ({
+      role_id: role._id,
+      permission: p.key,
+    }));
+
+    await RolePrivileges.insertMany(privilegeDocs);
 
     // Kayıt sonrası doğrulama maili gönder
     const verifyToken = crypto.randomBytes(32).toString("hex");
@@ -403,10 +421,8 @@ router.post(
   validate(userValidators.forgotPassword),
   asyncHandler(async (req, res) => {
     const { email } = req.body;
-    const lang = req.headers["accept-language"] || config.DEFAULT_LANG;
 
     const user = await Users.findOne({ email });
-    console.log("User found:", user?.email, user?._id);
 
     // Güvenlik: kullanıcı bulunsun ya da bulunmasın aynı response dön
     if (user) {
@@ -624,31 +640,29 @@ router.post(
       null,
     );
 
-    const session = await mongoose.startSession();
-    try {
-      await session.withTransaction(async () => {
-        const [user] = await Users.create(
-          [
-            {
-              email: body.email,
-              password,
-              is_active: true,
-              first_name: body.first_name,
-              last_name: body.last_name,
-              phone_number: body.phone_number,
-            },
-          ],
-          { session },
-        );
+    // TODO: Docker + Replica Set kurulumundan sonra transaction'ı aç
+    // const session = await mongoose.startSession();
+    // try {
+    //   await session.withTransaction(async () => {
+    //     const [user] = await Users.create([{...}], { session });
+    //     await UserRoles.insertMany([...], { session });
+    //   });
+    // } finally {
+    //   session.endSession();
+    // }
 
-        await UserRoles.insertMany(
-          roles.map((role) => ({ role_id: role._id, user_id: user._id })),
-          { session },
-        );
-      });
-    } finally {
-      session.endSession();
-    }
+    const user = await Users.create({
+      email: body.email,
+      password,
+      is_active: true,
+      first_name: body.first_name,
+      last_name: body.last_name,
+      phone_number: body.phone_number,
+    });
+
+    await UserRoles.insertMany(
+      roles.map((role) => ({ role_id: role._id, user_id: user._id })),
+    );
 
     res
       .status(Enum.HTTP_CODES.CREATED)
@@ -666,6 +680,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const body = req.body;
     const updates = {};
+
     if (body._id == req.user.id)
       throw new CustomError(
         Enum.HTTP_CODES.FORBIDDEN,
@@ -685,46 +700,38 @@ router.post(
     if (body.last_name) updates.last_name = body.last_name;
     if (body.phone_number) updates.phone_number = body.phone_number;
 
-    const session = await mongoose.startSession();
-    try {
-      await session.withTransaction(async () => {
-        if (Array.isArray(body.roles) && body.roles.length > 0) {
-          const userRoles = await UserRoles.find({ user_id: body._id }).session(
-            session,
-          );
+    // TODO: Docker + Replica Set kurulumundan sonra transaction'ı aç
+    // const session = await mongoose.startSession();
+    // try {
+    //   await session.withTransaction(async () => {
+    //     ... rol ve kullanıcı güncellemeleri session ile ...
+    //   });
+    // } finally {
+    //   session.endSession();
+    // }
 
-          const removedRoles = userRoles.filter(
-            (x) => !body.roles.includes(x.role_id.toString()),
-          );
-          const newRoles = body.roles.filter(
-            (x) => !userRoles.map((r) => r.role_id.toString()).includes(x),
-          );
+    if (Array.isArray(body.roles) && body.roles.length > 0) {
+      const userRoles = await UserRoles.find({ user_id: body._id });
 
-          if (removedRoles.length > 0)
-            await UserRoles.deleteMany(
-              { _id: { $in: removedRoles.map((x) => x._id) } },
-              { session },
-            );
+      const removedRoles = userRoles.filter(
+        (x) => !body.roles.includes(x.role_id.toString()),
+      );
+      const newRoles = body.roles.filter(
+        (x) => !userRoles.map((r) => r.role_id.toString()).includes(x),
+      );
 
-          if (newRoles.length > 0)
-            await UserRoles.insertMany(
-              newRoles.map((roleId) => ({
-                role_id: roleId,
-                user_id: body._id,
-              })),
-              { session },
-            );
-        }
+      if (removedRoles.length > 0)
+        await UserRoles.deleteMany({
+          _id: { $in: removedRoles.map((x) => x._id) },
+        });
 
-        await Users.updateOne(
-          { _id: body._id },
-          { $set: updates },
-          { session },
+      if (newRoles.length > 0)
+        await UserRoles.insertMany(
+          newRoles.map((roleId) => ({ role_id: roleId, user_id: body._id })),
         );
-      });
-    } finally {
-      session.endSession();
     }
+
+    await Users.updateOne({ _id: body._id }, { $set: updates });
     res.json(Response.successResponse({ success: true }));
   }),
 );
@@ -744,15 +751,19 @@ router.delete(
         "You cannot delete your own account",
       );
 
-    const session = await mongoose.startSession();
-    try {
-      await session.withTransaction(async () => {
-        await Users.deleteOne({ _id: body._id }, { session });
-        await UserRoles.deleteMany({ user_id: body._id }, { session });
-      });
-    } finally {
-      session.endSession();
-    }
+    // TODO: Docker + Replica Set kurulumundan sonra transaction'ı aç
+    // const session = await mongoose.startSession();
+    // try {
+    //   await session.withTransaction(async () => {
+    //     await Users.deleteOne({ _id: body._id }, { session });
+    //     await UserRoles.deleteMany({ user_id: body._id }, { session });
+    //   });
+    // } finally {
+    //   session.endSession();
+    // }
+
+    await Users.deleteOne({ _id: body._id });
+    await UserRoles.deleteMany({ user_id: body._id });
 
     res.json(Response.successResponse({ success: true }));
   }),

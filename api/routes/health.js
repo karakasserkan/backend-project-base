@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
+const Cache = require("../lib/cache");
 
 //SWAGGER
 /**
@@ -42,16 +43,25 @@ const mongoose = require("mongoose");
 
 router.get("/", async (req, res) => {
   const dbStatus = mongoose.connection.readyState;
-
   const dbState = {
     0: "disconnected",
     1: "connected",
     2: "connecting",
     3: "disconnecting",
   };
+  const isDbHealthy = dbStatus === 1;
 
-  const isHealthy = dbStatus === 1;
+  // Redis kontrolü
+  let isRedisHealthy = false;
+  try {
+    await Cache.set("health:check", "ok", 10);
+    const result = await Cache.get("health:check");
+    isRedisHealthy = result === "ok";
+  } catch {
+    isRedisHealthy = false;
+  }
 
+  const isHealthy = isDbHealthy && isRedisHealthy;
   const memoryUsage = process.memoryUsage();
 
   const health = {
@@ -60,7 +70,6 @@ router.get("/", async (req, res) => {
     uptime: Math.floor(process.uptime()) + "s",
     environment: process.env.NODE_ENV,
     version: process.env.APP_VERSION || "1.0.0",
-
     system: {
       memory: {
         rss: Math.round(memoryUsage.rss / 1024 / 1024) + "MB",
@@ -68,11 +77,11 @@ router.get("/", async (req, res) => {
         heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024) + "MB",
       },
     },
-
     services: {
-      database: {
-        status: dbState[dbStatus],
-        healthy: isHealthy,
+      database: { status: dbState[dbStatus], healthy: isDbHealthy },
+      redis: {
+        status: isRedisHealthy ? "connected" : "disconnected",
+        healthy: isRedisHealthy,
       },
     },
   };

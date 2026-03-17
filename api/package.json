@@ -12,6 +12,7 @@
   "dependencies": {
     "@iroomit/rate-limit-mongodb": "^1.0.1",
     "@sendgrid/mail": "^8.1.6",
+    "@upstash/redis": "^1.37.0",
     "bcrypt-nodejs": "^0.0.3",
     "cookie-parser": "~1.4.4",
     "cors": "^2.8.6",

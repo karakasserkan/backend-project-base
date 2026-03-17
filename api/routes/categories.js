@@ -18,6 +18,7 @@ const asyncHandler = require("../lib/asyncHandler");
 const paginate = require("../lib/paginate");
 const validate = require("../lib/validators/validate");
 const categoryValidators = require("../lib/validators/categories.validator");
+const Cache = require("../lib/cache");
 
 // Multer storage config
 const multerStorage = multer.diskStorage({
@@ -202,11 +203,21 @@ router.get(
   auth.checkRoles("category_view"),
   asyncHandler(async (req, res) => {
     const { page, limit, is_active } = req.query;
+    const cacheKey = `categories:${page || 1}:${limit || 20}:${is_active || "all"}`;
+
+    // Cache'den oku
+    const cached = await Cache.get(cacheKey);
+    if (cached) return res.json(Response.successResponse(cached));
+
     const query = {};
     if (typeof is_active !== "undefined")
       query.is_active = is_active === "true";
 
     const result = await paginate(Categories, query, { page, limit });
+
+    // Cache'e yaz — 5 dakika
+    await Cache.set(cacheKey, result, 300);
+
     res.json(Response.successResponse(result));
   }),
 );
@@ -226,6 +237,7 @@ router.post(
     });
 
     await category.save();
+    await Cache.delByPattern("categories:*");
 
     logger.info(req.user?.email, "Categories", "Add", category);
 
@@ -250,6 +262,7 @@ router.post(
     if (typeof body.is_active === "boolean") update.is_active = body.is_active;
 
     await Categories.updateOne({ _id: body._id }, update);
+    await Cache.delByPattern("categories:*");
 
     logger.info(req.user?.email, "Categories", "Update", {
       _id: body._id,
@@ -269,6 +282,7 @@ router.delete(
     const body = req.body;
 
     await Categories.deleteOne({ _id: body._id });
+    await Cache.delByPattern("categories:*");
 
     logger.info(req.user?.email, "Categories", "Delete", { _id: body._id });
 
