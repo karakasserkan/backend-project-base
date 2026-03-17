@@ -24,21 +24,23 @@ const userValidators = require("../lib/validators/users.validator");
 const crypto = require("crypto");
 const EmailService = require("../lib/email");
 const Cache = require("../lib/cache");
+const { RedisStore } = require("rate-limit-redis");
+const { Redis } = require("@upstash/redis");
 
 // Rate limiter — sadece production'da aktif
+const redisClient = new Redis({
+  url: config.REDIS.URL,
+  token: config.REDIS.TOKEN,
+});
 const limiter =
   process.env.NODE_ENV === "production"
     ? rateLimit({
-        store: new MongoDBStore({
-          uri: config.CONNECTION_STRING,
-          collectionName: "rateLimits",
-          resetExpireDateOnChange: true,
-          expireTimeMs: 15 * 60 * 1000,
-        }),
         windowMs: 15 * 60 * 1000,
         limit: 5,
         legacyHeaders: false,
-        ipv6Subnet: 56,
+        store: new RedisStore({
+          sendCommand: (...args) => redisClient.call(...args),
+        }),
       })
     : (req, res, next) => next();
 
