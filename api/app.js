@@ -14,8 +14,12 @@ const corsMiddleware = require("./config/cors");
 const errorHandler = require("./lib/errorHandler");
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./config/swagger");
+const Database = require("./db/Database");
+const { CONNECTION_STRING } = require("./config");
 
 var app = express();
+// ─── DB BAĞLANTISI ───────────────────────────────────────────────────────────
+new Database().connect({ CONNECTION_STRING });
 
 // ─── GÜVENLIK MİDDLEWARE'LERİ  ─────────────────────────────
 app.use(helmetMiddleware);
