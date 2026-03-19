@@ -26,6 +26,7 @@ const EmailService = require("../lib/email");
 const Cache = require("../lib/cache");
 const { RedisStore } = require("rate-limit-redis");
 const { Redis } = require("@upstash/redis");
+const { emailQueue } = require("../lib/queue");
 
 // Rate limiter — sadece production'da aktif
 const redisClient = new Redis({
@@ -363,7 +364,12 @@ router.post(
       },
     );
 
-    await EmailService.sendEmailVerification(body.email, verifyToken);
+    // await EmailService.sendEmailVerification(body.email, verifyToken);
+    await emailQueue.add("email_verification", {
+      type: "email_verification",
+      to: body.email,
+      token: verifyToken,
+    });
 
     res
       .status(Enum.HTTP_CODES.CREATED)
@@ -439,7 +445,12 @@ router.post(
         },
       );
 
-      await EmailService.sendPasswordReset(email, resetToken);
+      // await EmailService.sendPasswordReset(email, resetToken);
+      await emailQueue.add("password_reset", {
+        type: "password_reset",
+        to: email,
+        token: resetToken,
+      });
     }
 
     res.json(
@@ -547,7 +558,12 @@ router.post(
         },
       );
 
-      await EmailService.sendEmailVerification(email, verifyToken);
+      // await EmailService.sendEmailVerification(email, verifyToken);
+      await emailQueue.add("email_verification", {
+        type: "email_verification",
+        to: email,
+        token: verifyToken,
+      });
     }
 
     res.json(

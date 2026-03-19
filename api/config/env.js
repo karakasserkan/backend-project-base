@@ -27,6 +27,7 @@ const envSchema = Joi.object({
   APP_URL: Joi.string().uri().required(),
   UPSTASH_REDIS_REST_URL: Joi.string().uri().required(),
   UPSTASH_REDIS_REST_TOKEN: Joi.string().required(),
+  REDIS_URL: Joi.string().required(),
 }).unknown(true); // bilinmeyen değişkenlere izin ver
 
 const { error, value } = envSchema.validate(process.env);

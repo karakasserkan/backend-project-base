@@ -21,5 +21,6 @@ module.exports = {
   REDIS: {
     URL: env.UPSTASH_REDIS_REST_URL,
     TOKEN: env.UPSTASH_REDIS_REST_TOKEN,
+    CONNECTION_URL: env.REDIS_URL,
   },
 };
