@@ -4,7 +4,8 @@ const EmailService = require("./email");
 
 const connection = new Redis(process.env.REDIS_URL, {
   maxRetriesPerRequest: null,
-  tls: {},
+  tls: process.env.NODE_ENV === "production" ? {} : undefined,
+  lazyConnect: true,
 });
 
 // Email queue

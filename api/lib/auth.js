@@ -19,13 +19,16 @@ module.exports = function () {
       passReqToCallback: true,
     },
     async (req, payload, done) => {
-      // ← req parametresi eklendi
       try {
         // Token blacklist kontrolü
         const token = ExtractJwt.fromAuthHeaderAsBearerToken()(req);
         if (token) {
-          const isBlacklisted = await Cache.isTokenBlacklisted(token);
-          if (isBlacklisted) return done(null, false);
+          try {
+            const isBlacklisted = await Cache.isTokenBlacklisted(token);
+            if (isBlacklisted) return done(null, false);
+          } catch {
+            // Redis bağlantısı yoksa blacklist kontrolünü atla
+          }
         }
 
         const userId = new mongoose.Types.ObjectId(payload.id);
