@@ -364,12 +364,16 @@ router.post(
       },
     );
 
-    // await EmailService.sendEmailVerification(body.email, verifyToken);
-    await emailQueue.add("email_verification", {
-      type: "email_verification",
-      to: body.email,
-      token: verifyToken,
-    });
+    try {
+      // await EmailService.sendEmailVerification(body.email, verifyToken);
+      await emailQueue.add("email_verification", {
+        type: "email_verification",
+        to: body.email,
+        token: verifyToken,
+      });
+    } catch {
+      //Redis yoksa mail gönderimini sessizce geç.
+    }
 
     res
       .status(Enum.HTTP_CODES.CREATED)
@@ -445,12 +449,16 @@ router.post(
         },
       );
 
-      // await EmailService.sendPasswordReset(email, resetToken);
-      await emailQueue.add("password_reset", {
-        type: "password_reset",
-        to: email,
-        token: resetToken,
-      });
+      try {
+        // await EmailService.sendPasswordReset(email, resetToken);
+        await emailQueue.add("password_reset", {
+          type: "password_reset",
+          to: email,
+          token: resetToken,
+        });
+      } catch {
+        // Redis yoksa sessizce geç
+      }
     }
 
     res.json(
