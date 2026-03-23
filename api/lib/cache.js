@@ -7,42 +7,56 @@ const redis = new Redis({
 });
 
 class Cache {
-  // Veri kaydet
   static async set(key, value, ttlSeconds = 300) {
-    await redis.set(key, JSON.stringify(value), { ex: ttlSeconds });
-  }
-
-  // Veri oku
-  static async get(key) {
-    const data = await redis.get(key);
-    if (!data) return null;
     try {
-      return typeof data === "string" ? JSON.parse(data) : data;
+      await redis.set(key, JSON.stringify(value), { ex: ttlSeconds });
     } catch {
-      return data;
+      /* Redis yoksa sessizce geç */
     }
   }
 
-  // Veri sil
+  static async get(key) {
+    try {
+      const data = await redis.get(key);
+      if (!data) return null;
+      return typeof data === "string" ? JSON.parse(data) : data;
+    } catch {
+      return null;
+    }
+  }
+
   static async del(key) {
-    await redis.del(key);
+    try {
+      await redis.del(key);
+    } catch {
+      /* sessizce geç */
+    }
   }
 
-  // Pattern ile sil — örn: "categories:*"
   static async delByPattern(pattern) {
-    const keys = await redis.keys(pattern);
-    if (keys.length > 0) await redis.del(...keys);
+    try {
+      const keys = await redis.keys(pattern);
+      if (keys.length > 0) await redis.del(...keys);
+    } catch {
+      /* sessizce geç */
+    }
   }
 
-  // Token blacklist'e ekle — logout için
   static async blacklistToken(token, ttlSeconds) {
-    await redis.set(`blacklist:${token}`, "1", { ex: ttlSeconds });
+    try {
+      await redis.set(`blacklist:${token}`, "1", { ex: ttlSeconds });
+    } catch {
+      /* sessizce geç */
+    }
   }
 
-  // Token blacklist'te mi?
   static async isTokenBlacklisted(token) {
-    const result = await redis.get(`blacklist:${token}`);
-    return result !== null;
+    try {
+      const result = await redis.get(`blacklist:${token}`);
+      return result !== null;
+    } catch {
+      return false;
+    }
   }
 }
 
